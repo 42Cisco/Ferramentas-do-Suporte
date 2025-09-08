@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Conversor de Operadores → JSON/SQL</title>
+  <style>
+    :root{--bg:#0f172a;--card:#111827;--muted:#334155;--text:#e5e7eb;--accent:#22d3ee}
+    html,body{height:100%}
+    body{margin:0;background:linear-gradient(180deg,#0b1220,#0a0f1a);color:var(--text);font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial}
+    .wrap{max-width:1100px;margin:40px auto;padding:0 16px}
+    .title{font-size:22px;font-weight:700;margin-bottom:12px}
+    .row{display:flex;gap:12px;flex-wrap:wrap}
+    .card{background:var(--card);border:1px solid #1f2937;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+    .pad{padding:14px}
+    .input{min-height:220px;width:100%;border:1px dashed var(--muted);border-radius:12px;background:#0b1220;padding:10px;color:var(--text);outline:none}
+    .hint{font-size:12px;color:#9ca3af;margin:6px 0 0}
+    .btn{cursor:pointer;border:0;border-radius:12px;padding:10px 14px;background:#0ea5e9;color:#001018;font-weight:700}
+    .btn.secondary{background:#1f2937;color:#e5e7eb}
+    .btn.ghost{background:transparent;border:1px solid #314155;color:#cbd5e1}
+    .btn:active{transform:translateY(1px)}
+    .btns{display:flex;gap:10px;flex-wrap:wrap}
+    pre{white-space:pre-wrap;word-break:break-word;background:#0a0f1a;border:1px solid #1f2937;border-radius:12px;padding:12px;min-height:220px}
+    .grid{display:grid;grid-template-columns:1fr;gap:14px}
+    @media (min-width:960px){.grid{grid-template-columns:1fr 1fr}}
+    .footer{opacity:.7;font-size:12px;margin-top:14px}
+    .tag{display:inline-block;border:1px solid #1f2937;background:#0a0f1a;border-radius:999px;padding:6px 10px;margin-right:8px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="title">Conversor de Operadores → <span style="color:var(--accent)">JSON</span> / <span style="color:#a3e635">SQL</span></div>
+
+    <div class="card pad">
+      <div class="row" style="align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div>
+          <span class="tag">Colunas esperadas: ID | Nome | Código | Senha | Tipo</span>
+        </div>
+        <div class="btns">
+          <button class="btn" id="btnJson">Gerar JSON</button>
+          <button class="btn" style="background:#22c55e;color:#001508" id="btnSql">Gerar SQL</button>
+          <button class="btn ghost" id="btnCopiar">Copiar Saída</button>
+          <button class="btn secondary" id="btnLimpar">Limpar</button>
+        </div>
+      </div>
+      <div class="grid">
+        <div>
+          <div contenteditable="true" id="pasteArea" class="input" spellcheck="false"></div>
+          <div class="hint">Cole aqui sua <b>tabela</b> (Ctrl+V) ou dados em texto. Aceita: HTML de tabela, TSV/CSV. Também é possível arrastar um arquivo .csv/.tsv para este bloco.</div>
+        </div>
+        <div>
+          <pre id="output"></pre>
+        </div>
+      </div>
+      <div class="footer">Mapeamento de tipos: Mecânico=3 · Operador=4 · Comboista=8 · Supervisor Florestal=11 · Operador Mantenedor/Op/Man=18</div>
+    </div>
+  </div>
+
+  <script>
+    // ---------- Tipos ----------
+    const TYPE_RAW = new Map([
+      ["Mecânico",3],["Mecanico",3],
+      ["Operador",4],
+      ["Comboista",8],
+      ["Supervisor Florestal",11],
+      ["Operador Mantenedor",18],
+      ["Op/Man",18],["form.Op/Man",18],["form.OpMan",18],["form.Op/Man ",18],
+    ]);
+    const stripAccents = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    const normKey = s => stripAccents(String(s)).toLowerCase().replace(/\s+/g,' ').trim();
+    const TYPE_MAP = new Map(Array.from(TYPE_RAW.entries()).map(([k,v])=>[normKey(k),v]));
+    const inferTypeId = v => TYPE_MAP.get(normKey(v)) ?? 4;
+
+    // ---------- Utils ----------
+    const pasteArea = document.getElementById('pasteArea');
+    const out = document.getElementById('output');
+    const isInt = v => /^\d+$/.test(String(v).replace(/\s+/g,''));
+    const sanitizeName = s => String(s).replace(/'/g,"''");
+
+    // -------- Drag & drop CSV/TSV --------
+    ;["dragenter","dragover","dragleave","drop"].forEach(evt=>{
+      pasteArea.addEventListener(evt,e=>{e.preventDefault();e.stopPropagation();});
+    });
+    pasteArea.addEventListener('drop', async e=>{
+      const f = [...e.dataTransfer.files][0];
+      if(!f) return;
+      pasteArea.innerText = (await f.text()).trim();
+    });
+
+    // -------- Parse HTML table do clipboard --------
+    pasteArea.addEventListener('paste', (e)=>{
+      const html = e.clipboardData.getData('text/html');
+      if(html && html.includes('<table')){
+        e.preventDefault();
+        const doc = new DOMParser().parseFromString(html,'text/html');
+        const rows = [...doc.querySelectorAll('tr')].map(tr=>[...tr.cells].map(td=>td.textContent.trim()));
+        pasteArea.innerText = rows.map(r=>r.join('\t')).join('\n');
+      }
+    });
+
+    // -------- Parser robusto (TSV/CSV OU ESPAÇOS) --------
+    function parseDelimited(line){
+      let parts = line.split('\t');
+      if(parts.length < 5){
+        const sep = line.includes(';')?';':',';
+        parts = line.split(sep);
+      }
+      parts = parts.map(s=>s.trim()).filter(s=>s!=='');
+      return parts.length >= 5 ? parts : null;
+    }
+
+    function parseWhitespace(line){
+      const tokens = line.trim().split(/\s+/).filter(Boolean);
+      if(tokens.length < 5) return null;
+      const id = tokens[0];
+      if(!isInt(id)) return null;
+
+      // encontra os dois últimos números consecutivos para Código e Senha
+      let j = -1;
+      for(let i=tokens.length-2;i>=1;i--){
+        if(isInt(tokens[i]) && isInt(tokens[i+1])){ j=i; break; }
+      }
+      if(j === -1) return null;
+
+      const name = tokens.slice(1, j).join(' ');
+      const code = tokens[j];
+      const password = tokens[j+1];
+      const tipo = tokens.slice(j+2).join(' ');
+      if(!tipo) return null;
+      return [id,name,code,password,tipo];
+    }
+
+    function maybeHeader(line){
+      const l = normKey(line);
+      return l.includes('id') && l.includes('nome') && (l.includes('codigo')||l.includes('código')) && (l.includes('senha')||l.includes('senha do aplicativo')) && l.includes('tipo');
+    }
+
+    function toRows(){
+      const raw = pasteArea.innerText.trim();
+      if(!raw) return [];
+      const lines = raw.split(/\r?\n/).filter(Boolean);
+      const rows = [];
+      for(const line of lines){
+        if(maybeHeader(line)) continue;
+        let parts = parseDelimited(line);
+        if(!parts) parts = parseWhitespace(line);
+        if(!parts || parts.length < 5) continue;
+
+        // Normaliza para exatamente 5 campos (em CSV/TSV com nomes contendo vírgulas/tab)
+        if(parts.length > 5){
+          // Assume: id | ...nome... | código | senha | ...tipo...
+          const id = parts[0];
+          const code = parts[parts.length-3];
+          const password = parts[parts.length-2];
+          const tipo = parts.slice(parts.length-1).join(' ');
+          const name = parts.slice(1, parts.length-3).join(' ');
+          parts = [id,name,code,password,tipo];
+        }else if(parts.length === 5){
+          // ok
+        }
+        rows.push(parts.map(s=>s.trim()));
+      }
+      return rows;
+    }
+
+    // -------- Saídas --------
+    function toJSON(){
+      const rows = toRows();
+      const list = [];
+      for(const r of rows){
+        const [id,name,code,password,tipo] = r;
+        if(!isInt(id)) continue;
+        list.push({
+          type: 'addOperator',
+          data: { id: Number(id), name: String(name).trim(), code: String(code).trim(), password: String(password).trim(), type: inferTypeId(tipo) }
+        });
+      }
+      return JSON.stringify(list, null, 2);
+    }
+
+    function toSQL(){
+      const rows = toRows();
+      const lines = [];
+      for(const r of rows){
+        const [id,name,code,password,tipo] = r;
+        if(!isInt(id)) continue;
+        const typeId = inferTypeId(tipo);
+        lines.push(`INSERT INTO smartfleet.operador ( id, name, senha, code, type_id, status_id) VALUES (${Number(id)}, '${sanitizeName(name)}', md5('${String(password).trim()}'), '${String(code).trim()}', ${typeId}, 100);`);
+      }
+      return lines.join('\n');
+    }
+
+    // -------- Botões --------
+    document.getElementById('btnJson').onclick = ()=>{ out.textContent = toJSON() || '[]'; };
+    document.getElementById('btnSql').onclick  = ()=>{ out.textContent = toSQL() || ''; };
+    document.getElementById('btnLimpar').onclick = ()=>{ pasteArea.innerText=''; out.textContent=''; };
+    document.getElementById('btnCopiar').onclick = async ()=>{
+      const txt = out.textContent || '';
+      if(!txt) return;
+      try{ await navigator.clipboard.writeText(txt); }catch(e){ }
+    };
+  </script>
+</body>
+</html>
