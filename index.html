@@ -8,13 +8,19 @@
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
-            background-color: #f0f2f5;
             color: #333;
             display: flex;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
             text-align: center;
+
+            /* --- CÓDIGO DA IMAGEM DE FUNDO --- */
+            background-image: url('images/background.jpg'); /* Caminho para sua imagem */
+            background-size: cover; /* Faz a imagem cobrir toda a tela */
+            background-position: center; /* Centraliza a imagem */
+            background-attachment: fixed; /* Deixa a imagem fixa durante a rolagem */
+            background-repeat: no-repeat; /* Evita que a imagem se repita */
         }
         .container {
             max-width: 800px;
