@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conversor UTM para Latitude/Longitude</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.6.2/proj4.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #2c2c2c;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .container {
+            max-width: 600px;
+            width: 100%;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        h2 {
+            color: #b14a05;
+            margin-bottom: 20px;
+        }
+
+        p {
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+
+        .input-pair {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        label {
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+
+        input {
+            width: 120px;
+            padding: 10px;
+            font-size: 14px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+
+        .fuso-hemisferio-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            width: 100%;
+        }
+
+        .fuso-container {
+            display: flex;
+            align-items: center;
+            width: 40%;
+        }
+
+        .hemisphere-selector {
+            display: flex;
+            align-items: center;
+            flex-direction: row;
+            width: 50%;
+            justify-content: space-between;
+        }
+
+        .hemisphere-selector label {
+            margin-bottom: 5px;
+            margin-right: 50px;
+        }
+
+        .hemisphere-selector input {
+            margin-left: -80px;
+        }
+
+        .fuso-container input {
+            margin-left: 50px;
+        }
+
+        button {
+            padding: 10px;
+            background-color: #b14a05;
+            color: white;
+            font-size: 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        button:hover {
+            background-color: #b14a05;
+        }
+
+        .results {
+            margin-top: 20px;
+            font-size: 16px;
+        }
+
+        .results p {
+            background-color: #f1f1f1;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Conversor de Coordenadas UTM para Geográficas</h2>
+        <p>Insira as coordenadas UTM para conversão:</p>
+        
+        <div class="fuso-hemisferio-container">
+            <div class="fuso-container">
+                <label for="zone">Fuso:</label>
+                <input type="text" id="zone" placeholder="Ex: 23">
+            </div>
+            <div class="hemisphere-selector">
+                <label>Hemisfério:</label>
+                <label for="north">N</label>
+                <input type="radio" id="north" name="hemisphere" value="N" checked>
+                <label for="south">S</label>
+                <input type="radio" id="south" name="hemisphere" value="S">
+            </div>
+        </div>
+
+        <div class="input-pair">
+            <label for="easting">X:</label>
+            <input type="number" id="easting" placeholder="Ex: 750000">
+            <label for="northing">Y:</label>
+            <input type="number" id="northing" placeholder="Ex: 8135000">
+        </div>
+
+        <button onclick="convertUTMtoLatLon()">Converter</button>
+
+        <h3>Resultado:</h3>
+        <div class="results" id="results"></div>
+    </div>
+
+    <script>
+        function convertUTMtoLatLon() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = "";
+            
+            const zone = document.getElementById('zone').value; // Pega o fuso digitado
+            const hemisphere = document.querySelector('input[name="hemisphere"]:checked').value; // Pega o hemisfério selecionado
+            
+            if (!zone || isNaN(zone)) {
+                resultsDiv.innerHTML = "<p style='color: red;'>Por favor, insira um fuso válido.</p>";
+                return;
+            }
+            
+            // Definindo o EPSG para a zona UTM
+            let projString = `+proj=utm +zone=${zone} +datum=WGS84 +units=m +no_defs`;
+            if (hemisphere === 'S') {
+                projString += " +south";
+            }
+            
+            proj4.defs(`EPSG:32${zone}`, projString);
+            
+            let easting = parseFloat(document.getElementById('easting').value);
+            let northing = parseFloat(document.getElementById('northing').value);
+            
+            if (!isNaN(easting) && !isNaN(northing)) {
+                // Realiza a conversão de UTM para Latitude/Longitude
+                let latLon = proj4(`EPSG:32${zone}`, "EPSG:4326", [easting, northing]);
+                // Formato de exibição para Latitude/Longitude
+                resultsDiv.innerHTML = `<p>${latLon[1].toFixed(6)}, ${latLon[0].toFixed(6)}</p>`;
+            } else {
+                resultsDiv.innerHTML = "<p style='color: red;'>Por favor, insira coordenadas válidas.</p>";
+            }
+        }
+    </script>
+</body>
+</html>
