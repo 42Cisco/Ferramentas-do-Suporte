@@ -14,27 +14,27 @@
             align-items: center;
             min-height: 100vh;
             text-align: center;
-
-            /* --- CÓDIGO DA IMAGEM DE FUNDO --- */
-            background-image: url('images/background.jpg'); /* Caminho para sua imagem */
-            background-size: cover; /* Faz a imagem cobrir toda a tela */
-            background-position: center; /* Centraliza a imagem */
-            background-attachment: fixed; /* Deixa a imagem fixa durante a rolagem */
-            background-repeat: no-repeat; /* Evita que a imagem se repita */
+            background-image: url('images/background.jpg');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            background-repeat: no-repeat;
         }
         .container {
             max-width: 800px;
             padding: 40px;
-            background-color: #ffffff;
+            background-color: rgba(255, 255, 255, 0.95);
             border-radius: 12px;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
         }
         h1 {
-            color: #1e3a8a; /* Azul escuro */
+            /* COR DO TÍTULO: Alterado para laranja */
+            color: #DD6B20; 
             margin-bottom: 15px;
         }
         p {
-            color: #555;
+            /* COR DO TEXTO: Alterado para um laranja mais escuro e legível */
+            color: #C05621;
             font-size: 1.1em;
             margin-bottom: 30px;
         }
@@ -49,8 +49,10 @@
         .link-list a {
             display: block;
             padding: 15px 20px;
-            background-color: #2563eb; /* Azul vibrante */
-            color: #ffffff;
+            /* CAIXAS: Fundo alterado para amarelo */
+            background-color: #FACC15;
+            /* TEXTO DAS CAIXAS: Alterado para preto para boa leitura */
+            color: #1a202c;
             text-decoration: none;
             border-radius: 8px;
             font-size: 1.2em;
@@ -58,7 +60,8 @@
             transition: background-color 0.3s ease, transform 0.2s ease;
         }
         .link-list a:hover {
-            background-color: #1d4ed8; /* Azul mais escuro */
+            /* CAIXAS (HOVER): Fundo alterado para um amarelo mais escuro */
+            background-color: #EAB308; 
             transform: translateY(-2px);
         }
         footer {
@@ -75,7 +78,7 @@
         <ul class="link-list">
             <li><a href="Conversor formulários.html">Conversor de Formulários (XML/JSON/SQL)</a></li>
             <li><a href="Cadastro JSON SQL.html">Conversor de Cadastro para JSON/SQL</a></li>
-            <li><a href="Conversor Coordenadas.html">Conversor de Coordenadas UTM</a></li>
+            <li><a href="conversor.html">Conversor de Coordenadas UTM</a></li>
         </ul>
         <footer>
             <p>Projetos desenvolvidos para otimizar tarefas de conversão de dados.</p>
