@@ -1,314 +1,251 @@
-<!doctype html>
-<html lang="pt-br">
+<!DOCTYPE html>
+<html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Conversor de Formulários — XML / JSON / Inteligente / SQL</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Conversor JSON ⇄ XML (Formulários)</title>
   <style>
-    body{font-family:Inter,system-ui,Segoe UI,Roboto,Arial;margin:0;background:#0b1220;color:#e6eef8}
-    header{padding:16px;background:#071026}
-    .container{max-width:1100px;margin:18px auto;padding:18px}
-    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-    textarea{width:100%;min-height:220px;padding:12px;border-radius:6px;border:1px solid #213244;background:#071826;color:#e6eef8;font-family:monospace}
-    select,input,button{padding:8px;border-radius:6px;border:1px solid #213244;background:#071826;color:#e6eef8}
-    .row{display:flex;gap:8px;align-items:center}
-    .controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
-    .panel{background:#071827;padding:12px;border-radius:8px;border:1px solid #123}
-    footer{padding:12px;text-align:center;color:#8fa6bf}
-    .actions{display:flex;gap:6px}
-    .small{font-size:12px;color:#9fb0c8}
-    .full{grid-column:1 / -1}
-    @media(max-width:900px){.grid{grid-template-columns:1fr}.full{grid-column:1}}
+    :root { --bg:#0f172a; --panel:#111827; --ink:#e5e7eb; --muted:#94a3b8; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Inter, "Helvetica Neue", Arial, Noto Sans, "Apple Color Emoji", "Segoe UI Emoji"; background: var(--bg); color: var(--ink); }
+    header { padding: 18px 16px; border-bottom: 1px solid #1f2937; display:flex; align-items:center; justify-content:space-between; }
+    header h1 { margin:0; font-size: 18px; font-weight: 700; letter-spacing: .2px; }
+    main { padding: 16px; max-width: 1100px; margin: 0 auto; }
+    .bar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom: 10px; }
+    select, button { padding: 8px 12px; border-radius: 10px; background: #0b1220; color: var(--ink); border:1px solid #1f2937; cursor:pointer; font-size: 12px; }
+    button:hover, select:hover { border-color:#334155; }
+    .accent { border-color: #155e75; background: #04242a; color: #a5f3fc; }
+    .grid { display:grid; gap:12px; grid-template-columns: 1fr 1fr; }
+    .card { background: var(--panel); border:1px solid #1f2937; border-radius: 12px; overflow:hidden; display:flex; flex-direction:column; min-height: 360px; }
+    .card header { background: transparent; border:0; padding: 12px 14px; }
+    .card header h2 { margin:0; font-size:14px; color: var(--muted); font-weight:600; }
+    textarea { width:100%; flex:1; padding:12px 14px; background: transparent; color: var(--ink); border:0; outline: none; font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; resize:vertical; min-height: 340px; }
+    pre { margin:0; padding:12px 14px; white-space: pre-wrap; word-break: break-word; font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace; }
+    .toolbar { display:flex; gap:8px; flex-wrap:wrap; padding: 8px 12px 12px; }
+    .muted { color:var(--muted); font-size:12px; margin-top:8px; }
+    .error { color:#fecaca; background:#7f1d1d; border:1px solid #ef4444; padding:8px 10px; border-radius:8px; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 12px; }
   </style>
 </head>
 <body>
   <header>
-    <div class="container">
-      <h1>Conversor de Formulários — XML / JSON / Inteligente / SQL</h1>
-    </div>
+    <h1>Conversor JSON ⇄ XML (Formulários)</h1>
   </header>
-
-  <main class="container">
-    <div class="panel">
-      <div class="controls">
-        <div class="row">
-          <label class="small">Formato de entrada:</label>
-          <select id="inputFormat">
-            <option value="json">JSON</option>
-            <option value="xml">XML</option>
-          </select>
-        </div>
-        <div class="row">
-          <button id="convertBtn">Converter →</button>
-          <button id="prettyBtn">Formatar saídas JSON</button>
-          <button id="clearBtn">Limpar</button>
-        </div>
-      </div>
-
-      <div class="grid">
-        <div class="full">
-          <label class="small">Entrada (JSON ou XML)</label>
-          <textarea id="inputArea" placeholder="Cole aqui seu JSON addForm ou XML..."></textarea>
-          <div class="actions" style="margin-top:8px">
-            <button id="pasteJsonSample">Colar exemplo (JSON)</button>
-            <button id="pasteXmlSample">Colar exemplo (XML)</button>
-          </div>
-        </div>
-
-        <div class="full">
-          <label class="small">Saída — XML</label>
-          <textarea id="outXML"></textarea>
-        </div>
-
-        <div>
-          <label class="small">Saída — Inteligente</label>
-          <textarea id="outInt"></textarea>
-        </div>
-
-        <div>
-          <label class="small">Saída — JSON</label>
-          <textarea id="outJSON"></textarea>
-        </div>
-
-        <div class="full">
-          <label class="small">Saída — SQL</label>
-          <textarea id="outSQL"></textarea>
-        </div>
-
-      </div>
-
-      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <button id="copyAll">Copiar todas saídas</button>
-        <button id="downloadAll">Baixar todas</button>
-        <div class="small">Uso: cole, selecione o formato de entrada e clique em Converter.</div>
-      </div>
-
+  <main>
+    <div class="bar">
+      <label for="mode">Formato de entrada:</label>
+      <select id="mode" aria-label="Formato de entrada">
+        <option value="JSON">JSON</option>
+        <option value="XML">XML</option>
+      </select>
+      <button id="btnConvert" class="accent">Converter →</button>
+      <button id="btnFormat">Formatar entrada</button>
+      <button id="btnCopy">Copiar saída</button>
+      <button id="btnDownload">Baixar saída</button>
     </div>
+
+    <div class="grid">
+      <section class="card">
+        <header><h2 id="inTitle">Entrada (JSON)</h2></header>
+        <textarea id="inBox" placeholder="Cole aqui seu JSON ou XML..."></textarea>
+      </section>
+      <section class="card">
+        <header><h2 id="outTitle">Saída (XML)</h2></header>
+        <pre id="outBox"></pre>
+      </section>
+    </div>
+
+    <div id="msg" class="muted"></div>
+
+    <footer>
+      Regras de mapeamento (resumo):
+      <ul>
+        <li><strong>JSON → XML</strong>: preserva textos; <code>type: "int"</code> vira <code>&lt;int-numpad-type ...&gt;&lt;/int&gt;</code>; <code>single-select-type</code> vira <code>&lt;single-select-type&gt;&lt;option ...&gt;valor&lt;/option&gt;</code>, mantendo <code>id</code>/<code>selected</code>/<code>machine_status</code>/<code>child_visibility</code>. Metadados do JSON no &lt;form&gt; quando existirem.</li>
+        <li><strong>XML → JSON</strong>: reconstrói <code>{ type: "addForm", data: { form_id, version, title, fields: [...] } }</code>; aceita fechamentos como <code>&lt;int-numpad-type&gt;&lt;/int&gt;</code> e <code>&lt;keyboard-type&gt;&lt;/keyboard&gt;</code>.</li>
+      </ul>
+    </footer>
   </main>
 
-  <footer>
-    Conversor focado: entrada em XML/JSON com saídas em XML, JSON, Inteligente e SQL.
-  </footer>
+  <script>
+    const $ = (sel) => document.querySelector(sel);
+    const modeSel = $('#mode');
+    const inBox = $('#inBox');
+    const outBox = $('#outBox');
+    const inTitle = $('#inTitle');
+    const outTitle = $('#outTitle');
+    const msgEl = $('#msg');
 
-<script>
-// Utilitários
-function safeJson(obj){try{return JSON.stringify(obj,null,2)}catch(e){return 'JSON ERROR: '+e.message}}
-function parseXMLString(xmlStr){try{const parser=new DOMParser();const doc=parser.parseFromString(xmlStr,'application/xml');const err=doc.querySelector('parsererror');if(err)throw new Error('XML parse error: '+err.textContent);return doc;}catch(e){throw e}}
-function getAttr(node, attrName, type='string') {
-    if (!node || !node.hasAttribute(attrName)) return null;
-    const val = node.getAttribute(attrName);
-    if (type === 'int') return parseInt(val, 10);
-    if (type === 'bool') return val === 'true';
-    return val;
-}
+    const msg = (t, isErr=false) => { msgEl.textContent = t; msgEl.className = isErr ? 'error' : 'muted'; };
 
-// Mapeamento para modelo interno
-function modelFromXML(xmlStr){const doc=parseXMLString(xmlStr);const form = doc.querySelector('form'); if(!form) throw new Error('Tag <form> não encontrada');
-  const model={
-    form_id: getAttr(form, 'id', 'int'), version: getAttr(form, 'version', 'int'), title: form.querySelector('title')?.textContent.trim() || '',
-    position: getAttr(form, 'position', 'int'), client_id: getAttr(form, 'client_id', 'int'), deprecated: getAttr(form, 'deprecated', 'bool'),
-    fields:[]
-  };
-  const items=[...form.querySelectorAll('item')];
-  items.forEach(it=>{
-    const field = {
-        id: getAttr(it, 'id', 'int'), required: getAttr(it, 'required', 'bool'), title: it.querySelector('title')?.textContent.trim() || '', placeholder: it.querySelector('default')?.textContent.trim() || ''
-    };
-    const intType = it.querySelector('int-numpad-type');
-    const singleType = it.querySelector('single-select-type');
-    const multiType = it.querySelector('multiple-select-type');
-    if (intType) {
-      field.type = 'int';
-      field.max = getAttr(intType, 'max-int-val', 'int');
-      field.min = getAttr(intType, 'min-int-val', 'int');
-      field.max_len = getAttr(intType, 'max-int-len', 'int');
-    } else if (singleType || multiType) {
-      field.type = singleType ? 'single-select' : 'multiple-select';
-      field.options = [];
-      const opts = [...(singleType || multiType).querySelectorAll('option')];
-      opts.forEach(o=>{ field.options.push({id: getAttr(o, 'id', 'int'), value: o.textContent.trim(), selected: getAttr(o, 'selected', 'bool')})});
-    } else { field.type='text'; }
-    model.fields.push(field);
-  });
-  return model;
-}
-
-function modelFromAddForm(text){const obj=JSON.parse(text); if(!obj || !obj.data) throw new Error('Formato addForm inválido'); const data=obj.data; 
-  const model={
-      form_id:data.form_id||null, version:data.version||null, title:data.title||'', form_type: data.form_type, color: data.color, machine_status: data.machine_status,
-      operador_status: data.operador_status, operator_types: data.operator_types, operator_statuses_allowed: data.operator_statuses_allowed, fields:[]
-  };
-  (data.fields||[]).forEach(f=>{
-      const field={
-          id:f.id, title:f.title||'', placeholder:f.placeholder||'', type:f.type, required:!!f.required, max:f.max, min:f.min, max_len: f.max_len, confirmation_of: f.confirmation_of, work_shift: f.work_shift
-      }; 
-      if(f.options) field.options = f.options.map(o=>({ id:o.id, value:o.value, selected:!!o.selected, machine_status: o.machine_status })); 
-      model.fields.push(field)
-  });
-  return model;
-}
-
-// Geração de formatos a partir do model interno
-function generateXML(model){const esc = s=> s==null? '': String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  let formAttrs = `id="${model.form_id||''}"`;
-  if (model.position != null) formAttrs += ` position="${model.position}"`;
-  formAttrs += ` version="${model.version||''}"`;
-  if (model.client_id != null) formAttrs += ` client_id="${model.client_id}"`;
-  if (model.deprecated != null) formAttrs += ` deprecated="${model.deprecated}"`;
-  let xml = `<?xml version="1.0"?>\n<form ${formAttrs}>\n  <title>${esc(model.title||'')}</title>\n`;
-  model.fields.forEach(f=>{
-    xml += `  <item id="${f.id}" required="${!!f.required}">\n    <title>${esc(f.title)}</title>\n`;
-    if(f.placeholder) xml += `    <default>${esc(f.placeholder)}</default>\n`;
-    const type = f.type || 'text';
-    if(type === 'int'){
-      let attrs = '';
-      if (f.max_len != null) attrs += ` max-int-len="${f.max_len}"`;
-      if (f.min != null) attrs += ` min-int-val="${f.min}"`;
-      if (f.max != null) attrs += ` max-int-val="${f.max}"`;
-      xml += `    <int-numpad-type${attrs}></int-numpad-type>\n`;
-    } else if(type === 'single-select' || type === 'multiple-select'){
-      const tagName = type === 'single-select' ? 'single-select-type' : 'multiple-select-type';
-      xml += `    <${tagName}>\n`;
-      (f.options||[]).forEach(o=>{ xml += `        <option id="${o.id}" selected="${!!o.selected}">${esc(o.value)}</option>\n`; });
-      xml += `    </${tagName}>\n`;
+    // ---------- utils ----------
+    function escapeXml(str=""){
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\"/g, '&quot;')
+        .replace(/\'/g, '&apos;');
     }
-    xml += `  </item>\n`;
-  });
-  xml += `</form>`;
-  return xml;
-}
+    function attr(k,v){ if(v===undefined||v===null||v==='') return ''; return ` ${k}="${escapeXml(String(v))}"`; }
+    function prettyXml(xml){
+      try{ xml = xml.replace(/\r?\n/g,'').replace(/\t/g,' ').replace(/>(\s*)</g, '>\n<'); let indent=0; const pad=n=>'  '.repeat(n);
+        return xml.split(/\n/).map(l=>{ const t=l.trim(); if(!t) return ''; if(t.startsWith('</')) indent=Math.max(0,indent-1); const out=pad(indent)+t; if(/^<[^!?][^>]*[^/]>(?!.*<\/)/.test(t) && !t.startsWith('</')) indent++; return out; }).join('\n'); }catch{ return xml; }
+    }
+    function prettyJson(obj){ try{ return JSON.stringify(typeof obj==='string'? JSON.parse(obj):obj,null,2); }catch{ return String(obj); } }
+    function toNumOrStr(v){ if(v===undefined||v===null) return v; const n=Number(v); return Number.isFinite(n)&&String(n)===String(v).trim()? n : String(v); }
 
-function generateInteligente(model){const arr = model.fields.map(f=>{
-  const out = {id:f.id, placeholder:f.placeholder||'', title:f.title||'', type: f.type, required:!!f.required};
-  if(f.min != null) out.min = f.min;
-  if(f.max != null) out.max = f.max;
-  if(f.work_shift != null) out.work_shift = f.work_shift;
-  if(f.options) out.options = f.options.map(o=>[o.id, o.value, o.selected?1:0]);
-  return out;
-});
-return JSON.stringify(arr,null,2);
-}
+    // ---------- JSON → XML ----------
+    function jsonToXml(jsonStr){
+      let data; try{ data = JSON.parse(jsonStr); }catch(e){ throw new Error('JSON inválido: '+e.message); }
+      const root = data?.data?.fields ? data.data : data;
+      if(!root || !Array.isArray(root.fields)) throw new Error('Estrutura inesperada: não encontrei `fields`.');
 
-function generateAddForm(model){const out = {type:'addForm',data:{
-    form_type: model.form_type, form_id: model.form_id, version: model.version, title: model.title, color: model.color,
-    machine_status: model.machine_status, operador_status: model.operador_status, operator_types: model.operator_types,
-    operator_statuses_allowed: model.operator_statuses_allowed, fields: []
-}};
-  model.fields.forEach(f=>{
-    const fld = {id: f.id, placeholder: f.placeholder||'', title: f.title||'', type: f.type, required: !!f.required};
-    if(f.min != null) fld.min = f.min;
-    if(f.max != null) fld.max = f.max;
-    if(f.max_len != null) fld.max_len = f.max_len;
-    if(f.confirmation_of != null) fld.confirmation_of = f.confirmation_of;
-    if(f.work_shift != null) fld.work_shift = f.work_shift;
-    if(f.options) fld.options = f.options.map(o=>({id:o.id, value:o.value, selected:!!o.selected, machine_status: o.machine_status}));
-    out.data.fields.push(fld);
-  });
-  return JSON.stringify(out,null,2);
-}
+      const formPairs = [];
+      formPairs.push(['id', root.form_id]);
+      formPairs.push(['version', root.version]);
+      ;['color','machine_status','operador_status','operator_status','form_type'].forEach(k=>{ if(root[k]!==undefined) formPairs.push([k, root[k]]); });
+      if(Array.isArray(root.operator_types)) formPairs.push(['operator_types', root.operator_types.join(',')]);
+      if(Array.isArray(root.operator_statuses_allowed)) formPairs.push(['operator_statuses_allowed', root.operator_statuses_allowed.join(',')]);
 
-function generateSQL(model){ 
-  const fieldsOnly = model.fields.map(f => {
-      const field = { id: f.id, placeholder: f.placeholder, title: f.title, type: f.type, required: f.required };
-      if(f.min != null) field.min = f.min; if(f.max != null) field.max = f.max; if(f.work_shift != null) field.work_shift = f.work_shift;
-      if(f.options) field.options = f.options.map(o => ({id: o.id, value: o.value, selected: o.selected}));
-      return field;
-  });
-  const jsonBlob = JSON.stringify({fields: fieldsOnly}).replace(/'/g,"''");
-  const sql = `INSERT INTO smartfleet.message_forms (form_id,\n                                      field,\n                                      version,\n                                      title,\n                                      color,\n                                      machine_status_id,\n                                      operador_status_id,\n                                      form_type)\nVALUES (${model.form_id||'NULL'},\n        '${jsonBlob}',\n        ${model.version||'NULL'},\n        '${(model.title||'').replace(/'/g,"''")}',\n        '${model.color||''}',\n        ${model.machine_status!=null ? model.machine_status : 'NULL'},\n        ${model.operador_status!=null ? model.operador_status : 'NULL'},\n        '${model.form_type||''}');`;
-  return sql;
-}
+      let xml = `<?xml version="1.0"?>\n<form${formPairs.map(([k,v])=>attr(k,v)).join('')}>`;
+      if(root.title!==undefined) xml += `\n  <title>${escapeXml(String(root.title))}</title>`;
 
-// Master conversion
-function convertFrom(format, text){ if(!text || !text.trim()) throw new Error('Entrada vazia');
-  format = format.toLowerCase();
-  let model;
-  if(format==='xml') model = modelFromXML(text);
-  else if(format==='json') model = modelFromAddForm(text);
-  else throw new Error('Formato de entrada desconhecido');
-  return model;
-}
+      for(const f of root.fields){
+        const req = !!f.required;
+        const title = String(f.title ?? '');
+        const placeholder = String(f.placeholder ?? f.default ?? '');
 
-// UI wiring
-const inputArea = document.getElementById('inputArea');
-const inputFormat = document.getElementById('inputFormat');
-const convertBtn = document.getElementById('convertBtn');
-const outXML = document.getElementById('outXML');
-const outInt = document.getElementById('outInt');
-const outJSON = document.getElementById('outJSON');
-const outSQL = document.getElementById('outSQL');
-const prettyBtn = document.getElementById('prettyBtn');
-const clearBtn = document.getElementById('clearBtn');
-const pasteJsonSample = document.getElementById('pasteJsonSample');
-const pasteXmlSample = document.getElementById('pasteXmlSample');
+        xml += `\n  <item id="${escapeXml(f.id)}" required="${req?'true':'false'}">`;
+        xml += `\n    <title>${escapeXml(title)}</title>`;
+        if(placeholder) xml += `\n    <default>${escapeXml(placeholder)}</default>`;
 
-convertBtn.addEventListener('click', ()=>{
-  try{
-    const fmt = inputFormat.value;
-    const text = inputArea.value;
-    const model = convertFrom(fmt,text);
-    outXML.value = generateXML(model);
-    outInt.value = generateInteligente(model);
-    outJSON.value = generateAddForm(model);
-    outSQL.value = generateSQL(model);
-  }catch(e){alert('Erro: '+e.message)}
-});
-
-prettyBtn.addEventListener('click', ()=>{
-  try{
-    if(outJSON.value) outJSON.value = JSON.stringify(JSON.parse(outJSON.value),null,2);
-    if(outInt.value) outInt.value = JSON.stringify(JSON.parse(outInt.value),null,2);
-  }catch(e){alert('Formatar: '+e.message)}
-});
-
-clearBtn.addEventListener('click', ()=>{inputArea.value=''; outXML.value=''; outJSON.value=''; outInt.value=''; outSQL.value='';});
-
-pasteJsonSample.addEventListener('click', ()=>{
-  inputFormat.value = 'json';
-  inputArea.value = `{\n    "type": "addForm",\n    "data": {\n        "form_type": "operation",\n        "form_id": 10901,\n        "version": 1145001,\n        "title": "OPERACAO DO EQUIPAMENTO",\n        "color": "4CAF50",\n        "machine_status": 3,\n        "operador_status": 3,\n        "fields": [\n            {\n                "id": 1,\n                "placeholder": "Informe a matricula do operador",\n                "title": "MATRICULA DO OPERADOR",\n                "type": "int",\n                "max": 99999999,\n                "min": 0,\n                "required": true\n            }\n        ]\n    }\n}`;
-});
-
-pasteXmlSample.addEventListener('click', ()=>{
-  inputFormat.value='xml';
-  inputArea.value = `<?xml version="1.0"?>
-<form id="11310" position="1" version="1145001" client_id="1145" deprecated="false">
-  <title>APROPRIAÇÃO DO EQUIPAMENTO</title>
-  <item id="1" required="true">
-    <title>MATRÍCULA DO OPERADOR</title>
-    <default>Informe a matrícula do operador</default>
-    <int-numpad-type max-int-len="8" min-int-val="0" max-int-val="99999999"></int-numpad-type>
-  </item>
-</form>`;
-});
-
-// copy all
-document.getElementById('copyAll').addEventListener('click', ()=>{
-  // CORRIGIDO: A barra invertida antes do acento grave foi removida.
-  const combined = `--- XML ---\n${outXML.value}\n\n--- INTELIGENTE ---\n${outInt.value}\n\n--- JSON ---\n${outJSON.value}\n\n--- SQL ---\n${outSQL.value}`;
-  navigator.clipboard.writeText(combined).then(()=>alert('Copiado para área de transferência'));
-});
-
-// download all
-document.getElementById('downloadAll').addEventListener('click', ()=>{
-  const files = [
-      {name:'form.xml', content:outXML.value},
-      {name:'form.int.json', content:outInt.value},
-      {name:'form.addform.json', content:outJSON.value},
-      {name:'form.sql', content:outSQL.value}
-  ];
-  files.forEach(f => { 
-      if (f.content) {
-          const blob = new Blob([f.content],{type:'text/plain;charset=utf-8'});
-          const a = document.createElement('a');
-          a.href = URL.createObjectURL(blob);
-          a.download = f.name;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(a.href);
+        if(f.type === 'int'){
+          const maxIntLen = Number.isFinite(f.max) ? String(Math.floor(Math.log10(f.max))+1) : undefined;
+          const minVal = Number.isFinite(f.min) ? f.min : undefined;
+          const maxVal = Number.isFinite(f.max) ? f.max : undefined;
+          xml += `\n    <int-numpad-type${attr('max-int-len', maxIntLen||8)}${attr('min-int-val', minVal)}${attr('max-int-val', maxVal)} ></int>`;
+        } else if(f.type === 'single-select-type'){
+          xml += `\n    <single-select-type>`;
+          const options = Array.isArray(f.options)? f.options : [];
+          for(const o of options){
+            const extra = [attr('id', o.id), attr('selected', o.selected?'true':'false')].join('');
+            const ms = attr('machine_status', o.machine_status);
+            const cv = attr('child_visibility', o.child_visibility);
+            xml += `\n      <option${extra}${ms}${cv}>${escapeXml(o.value ?? o.label ?? '')}</option>`;
+          }
+          xml += `\n    </single-select-type>`;
+        } else {
+          const maxTextLen = Number.isFinite(f.max) ? String(String(f.max).length) : undefined;
+          xml += `\n    <keyboard-type${attr('max-text-len', maxTextLen)} ></keyboard>`;
+        }
+        xml += `\n  </item>`;
       }
-  });
-});
-</script>
+
+      xml += `\n</form>`;
+      return prettyXml(xml);
+    }
+
+    // ---------- XML → JSON ----------
+    function normalizeLooseXml(str){
+      return str
+        .replace(/<int-numpad-type([^>]*)>\s*<\/int>/gi, '<int-numpad-type$1></int-numpad-type>')
+        .replace(/<keyboard-type([^>]*)>\s*<\/keyboard>/gi, '<keyboard-type$1></keyboard-type>');
+    }
+    function xmlToJson(xmlStr){
+      const clean = normalizeLooseXml(xmlStr);
+      const doc = new DOMParser().parseFromString(clean, 'application/xml');
+      const perr = doc.querySelector('parsererror'); if(perr) throw new Error('XML inválido: ' + perr.textContent.replace(/\s+/g,' ').trim());
+      const form = doc.querySelector('form'); if(!form) throw new Error('Não encontrei <form> no XML.');
+
+      const data = {};
+      data.form_id = toNumOrStr(form.getAttribute('id'));
+      data.version = toNumOrStr(form.getAttribute('version'));
+      ['color','machine_status','operador_status','operator_status','form_type'].forEach(k=>{ const v=form.getAttribute(k); if(v!==null) data[k]=toNumOrStr(v); });
+      const ot=form.getAttribute('operator_types'); if(ot) data.operator_types = ot.split(',').map(s=>toNumOrStr(s.trim()));
+      const osa=form.getAttribute('operator_statuses_allowed'); if(osa) data.operator_statuses_allowed = osa.split(',').map(s=>toNumOrStr(s.trim()));
+
+      const titleEl = form.querySelector(':scope > title'); if(titleEl) data.title = titleEl.textContent || '';
+
+      data.fields = [];
+      form.querySelectorAll(':scope > item').forEach(item=>{
+        const f = {};
+        f.id = toNumOrStr(item.getAttribute('id'));
+        f.required = String(item.getAttribute('required')).toLowerCase() === 'true';
+        const t=item.querySelector(':scope > title'); if(t) f.title = t.textContent || '';
+        const d=item.querySelector(':scope > default'); if(d) f.placeholder = d.textContent || '';
+
+        const intNode = item.querySelector(':scope > int-numpad-type');
+        const selNode = item.querySelector(':scope > single-select-type');
+        const keyNode = item.querySelector(':scope > keyboard-type');
+
+        if(selNode){
+          f.type = 'single-select-type'; f.options = [];
+          selNode.querySelectorAll('option').forEach(op=>{
+            const o={};
+            o.id = toNumOrStr(op.getAttribute('id'));
+            const sel=(op.getAttribute('selected')||'').toLowerCase(); o.selected = sel==='true'||sel==='1'||sel==='yes';
+            const ms=op.getAttribute('machine_status'); if(ms!==null) o.machine_status = toNumOrStr(ms);
+            const cv=op.getAttribute('child_visibility'); if(cv!==null) o.child_visibility = toNumOrStr(cv);
+            o.value = op.textContent || '';
+            f.options.push(o);
+          });
+        } else if(intNode){
+          f.type = 'int';
+          const mil=intNode.getAttribute('min-int-val'); const mal=intNode.getAttribute('max-int-val'); const mlen=intNode.getAttribute('max-int-len');
+          if(mil!==null) f.min = toNumOrStr(mil); if(mal!==null) f.max = toNumOrStr(mal);
+          if(mlen && mal===null){ const n=Number(mlen); if(Number.isFinite(n)&&n>0&&n<=15){ f.max = Number('9'.repeat(n)); } }
+        } else if(keyNode){
+          f.type = 'keyboard-type'; const mtl=keyNode.getAttribute('max-text-len'); if(mtl!==null) f.max = toNumOrStr(mtl);
+        } else { f.type = 'keyboard-type'; }
+
+        data.fields.push(f);
+      });
+
+      return prettyJson({ type: 'addForm', data });
+    }
+
+    // ---------- UI ----------
+    function updateUi(){
+      const m = modeSel.value;
+      inTitle.textContent = `Entrada (${m})`;
+      outTitle.textContent = `Saída (${m==='JSON' ? 'XML' : 'JSON'})`;
+      inBox.placeholder = m==='JSON' ? 'Cole aqui seu JSON...' : 'Cole aqui seu XML...';
+      outBox.textContent = '';
+      msg('');
+    }
+
+    $('#btnConvert').addEventListener('click', ()=>{
+      try{
+        const m = modeSel.value;
+        const input = inBox.value;
+        const out = (m==='JSON') ? jsonToXml(input) : xmlToJson(input);
+        outBox.textContent = out; msg('Conversão concluída.');
+      }catch(e){ outBox.textContent = ''; msg(e.message, true); }
+    });
+
+    $('#btnFormat').addEventListener('click', ()=>{
+      const m = modeSel.value;
+      try{
+        if(m==='JSON') inBox.value = prettyJson(inBox.value);
+        else outBox.textContent = outBox.textContent; // noop
+        msg('Entrada formatada.');
+      }catch(e){ msg('Não foi possível formatar a entrada: '+e.message, true); }
+    });
+
+    $('#btnCopy').addEventListener('click', async ()=>{
+      try{ await navigator.clipboard.writeText(outBox.textContent); msg('Saída copiada.'); }
+      catch(e){ msg('Falha ao copiar: '+e.message, true); }
+    });
+
+    $('#btnDownload').addEventListener('click', ()=>{
+      const m = modeSel.value; const isXml = (m==='JSON');
+      const blob = new Blob([outBox.textContent||''], {type: isXml ? 'application/xml;charset=utf-8' : 'application/json;charset=utf-8'});
+      const url = URL.createObjectURL(blob); const a=document.createElement('a');
+      a.href=url; a.download = isXml ? 'saida.xml' : 'saida.json'; a.click(); URL.revokeObjectURL(url);
+    });
+
+    modeSel.addEventListener('change', updateUi);
+    updateUi();
+  </script>
 </body>
 </html>
