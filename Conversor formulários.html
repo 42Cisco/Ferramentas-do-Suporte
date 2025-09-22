@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Conversor JSON ⇄ XML (Formulários)</title>
+  <title>Conversor JSON ⇄ XML (+ INTELIGENTE)</title>
   <style>
     :root { --bg:#0f172a; --panel:#111827; --ink:#e5e7eb; --muted:#94a3b8; }
     * { box-sizing: border-box; }
@@ -12,6 +12,7 @@
     header h1 { margin:0; font-size: 18px; font-weight: 700; letter-spacing: .2px; }
     main { padding: 16px; max-width: 1100px; margin: 0 auto; }
     .bar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom: 10px; }
+    label { font-size:12px; color: var(--muted); }
     select, button { padding: 8px 12px; border-radius: 10px; background: #0b1220; color: var(--ink); border:1px solid #1f2937; cursor:pointer; font-size: 12px; }
     button:hover, select:hover { border-color:#334155; }
     .accent { border-color: #155e75; background: #04242a; color: #a5f3fc; }
@@ -29,15 +30,23 @@
 </head>
 <body>
   <header>
-    <h1>Conversor JSON ⇄ XML (Formulários)</h1>
+    <h1>Conversor JSON ⇄ XML (+ INTELIGENTE)</h1>
   </header>
   <main>
     <div class="bar">
-      <label for="mode">Formato de entrada:</label>
+      <label for="mode">Entrada:</label>
       <select id="mode" aria-label="Formato de entrada">
         <option value="JSON">JSON</option>
         <option value="XML">XML</option>
       </select>
+
+      <label for="outMode">Saída:</label>
+      <select id="outMode" aria-label="Formato de saída">
+        <option value="XML">XML</option>
+        <option value="JSON">JSON</option>
+        <option value="INTELIGENTE">INTELIGENTE</option>
+      </select>
+
       <button id="btnConvert" class="accent">Converter →</button>
       <button id="btnFormat">Formatar entrada</button>
       <button id="btnCopy">Copiar saída</button>
@@ -60,8 +69,9 @@
     <footer>
       Regras de mapeamento (resumo):
       <ul>
-        <li><strong>JSON → XML</strong>: preserva textos; <code>type: "int"</code> vira <code>&lt;int-numpad-type ...&gt;&lt;/int&gt;</code>; <code>single-select-type</code> vira <code>&lt;single-select-type&gt;&lt;option ...&gt;valor&lt;/option&gt;</code>, mantendo <code>id</code>/<code>selected</code>/<code>machine_status</code>/<code>child_visibility</code>. Metadados do JSON no &lt;form&gt; quando existirem.</li>
+        <li><strong>JSON → XML</strong>: preserva textos; <code>type: "int"</code> vira <code>&lt;int-numpad-type ...&gt;&lt;/int&gt;</code>; <code>single-select-type</code> vira <code>&lt;single-select-type&gt;&lt;option ...&gt;valor&lt;/option&gt;</code>, mantendo <code>id</code>/<code>selected</code>/<code>machine_status</code>/<code>child_visibility</code>. Metadados do JSON sobem para o &lt;form&gt; quando existirem.</li>
         <li><strong>XML → JSON</strong>: reconstrói <code>{ type: "addForm", data: { form_id, version, title, fields: [...] } }</code>; aceita fechamentos como <code>&lt;int-numpad-type&gt;&lt;/int&gt;</code> e <code>&lt;keyboard-type&gt;&lt;/keyboard&gt;</code>.</li>
+        <li><strong>JSON/XML → INTELIGENTE</strong>: produz <em>array</em> de campos. Campos: <code>{ id, title, placeholder, type, required, [min], [max], [options] }</code>. Selects: <code>options</code> vira lista de tuplas <code>[id, label, selected(0/1), machine_status?, child_visibility?]</code>. Sem metadados de formulário.</li>
       </ul>
     </footer>
   </main>
@@ -69,6 +79,7 @@
   <script>
     const $ = (sel) => document.querySelector(sel);
     const modeSel = $('#mode');
+    const outSel = $('#outMode');
     const inBox = $('#inBox');
     const outBox = $('#outBox');
     const inTitle = $('#inTitle');
@@ -124,14 +135,15 @@
           const minVal = Number.isFinite(f.min) ? f.min : undefined;
           const maxVal = Number.isFinite(f.max) ? f.max : undefined;
           xml += `\n    <int-numpad-type${attr('max-int-len', maxIntLen||8)}${attr('min-int-val', minVal)}${attr('max-int-val', maxVal)} ></int>`;
-        } else if(f.type === 'single-select-type'){
+        } else if(f.type === 'single-select-type' || f.type === 'single-select'){
           xml += `\n    <single-select-type>`;
           const options = Array.isArray(f.options)? f.options : [];
           for(const o of options){
             const extra = [attr('id', o.id), attr('selected', o.selected?'true':'false')].join('');
             const ms = attr('machine_status', o.machine_status);
             const cv = attr('child_visibility', o.child_visibility);
-            xml += `\n      <option${extra}${ms}${cv}>${escapeXml(o.value ?? o.label ?? '')}</option>`;
+            const label = o.value ?? o.label ?? '';
+            xml += `\n      <option${extra}${ms}${cv}>${escapeXml(label)}</option>`;
           }
           xml += `\n    </single-select-type>`;
         } else {
@@ -145,13 +157,13 @@
       return prettyXml(xml);
     }
 
-    // ---------- XML → JSON ----------
+    // ---------- XML → JSON (objeto) ----------
     function normalizeLooseXml(str){
       return str
         .replace(/<int-numpad-type([^>]*)>\s*<\/int>/gi, '<int-numpad-type$1></int-numpad-type>')
         .replace(/<keyboard-type([^>]*)>\s*<\/keyboard>/gi, '<keyboard-type$1></keyboard-type>');
     }
-    function xmlToJson(xmlStr){
+    function xmlToJsonObject(xmlStr){
       const clean = normalizeLooseXml(xmlStr);
       const doc = new DOMParser().parseFromString(clean, 'application/xml');
       const perr = doc.querySelector('parsererror'); if(perr) throw new Error('XML inválido: ' + perr.textContent.replace(/\s+/g,' ').trim());
@@ -201,33 +213,88 @@
         data.fields.push(f);
       });
 
-      return prettyJson({ type: 'addForm', data });
+      return { type: 'addForm', data };
+    }
+    function xmlToJson(xmlStr){ return prettyJson(xmlToJsonObject(xmlStr)); }
+
+    // ---------- JSON/XML → INTELIGENTE ----------
+    function mapFieldToInt(f){
+      const out = {
+        id: f.id,
+        placeholder: f.placeholder ?? '',
+        title: f.title ?? '',
+        type: (f.type === 'single-select-type') ? 'single-select' : (f.type || ''),
+        required: !!f.required
+      };
+      if(out.type === 'int'){
+        if(Number.isFinite(f.min)) out.min = f.min;
+        if(Number.isFinite(f.max)) out.max = f.max;
+      }
+      const isSelect = (f.type === 'single-select-type' || f.type === 'single-select');
+      if(isSelect && Array.isArray(f.options)){
+        out.options = f.options.map(op => {
+          if(Array.isArray(op)) return op; // já está em formato INTELIGENTE
+          const tuple = [];
+          tuple.push(op.id);
+          tuple.push(op.value ?? op.label ?? '');
+          tuple.push(op.selected ? 1 : 0);
+          if(op.machine_status !== undefined) tuple.push(op.machine_status);
+          if(op.child_visibility !== undefined) tuple.push(op.child_visibility);
+          return tuple;
+        });
+      }
+      return out;
+    }
+    function dataToInt(data){
+      if(!data || !Array.isArray(data.fields)) throw new Error('Estrutura inesperada: não encontrei `fields`.');
+      return data.fields.map(mapFieldToInt);
+    }
+    function jsonToInt(jsonStr){
+      let obj; try{ obj = JSON.parse(jsonStr); }catch(e){ throw new Error('JSON inválido: '+e.message); }
+      const root = obj?.data?.fields ? obj.data : obj;
+      const arr = dataToInt(root);
+      return prettyJson(arr);
+    }
+    function xmlToInt(xmlStr){
+      const obj = xmlToJsonObject(xmlStr); // {type, data}
+      const arr = dataToInt(obj.data);
+      return prettyJson(arr);
     }
 
     // ---------- UI ----------
     function updateUi(){
-      const m = modeSel.value;
+      const m = modeSel.value; const o = outSel.value;
       inTitle.textContent = `Entrada (${m})`;
-      outTitle.textContent = `Saída (${m==='JSON' ? 'XML' : 'JSON'})`;
+      outTitle.textContent = `Saída (${o})`;
       inBox.placeholder = m==='JSON' ? 'Cole aqui seu JSON...' : 'Cole aqui seu XML...';
+      // se entrada for JSON, default saída XML; se entrada for XML, default saída JSON (não forçar se usuário já escolheu INTELIGENTE)
+      if(o==='INTELIGENTE') return; // respeita escolha
+      outSel.value = (m==='JSON') ? 'XML' : 'JSON';
+      outTitle.textContent = `Saída (${outSel.value})`;
       outBox.textContent = '';
       msg('');
     }
 
     $('#btnConvert').addEventListener('click', ()=>{
       try{
-        const m = modeSel.value;
-        const input = inBox.value;
-        const out = (m==='JSON') ? jsonToXml(input) : xmlToJson(input);
+        const m = modeSel.value; const o = outSel.value; const input = inBox.value;
+        let out='';
+        if(m==='JSON' && o==='XML') out = jsonToXml(input);
+        else if(m==='JSON' && o==='JSON') out = prettyJson(input);
+        else if(m==='JSON' && o==='INTELIGENTE') out = jsonToInt(input);
+        else if(m==='XML' && o==='JSON') out = xmlToJson(input);
+        else if(m==='XML' && o==='XML') out = prettyXml(normalizeLooseXml(input));
+        else if(m==='XML' && o==='INTELIGENTE') out = xmlToInt(input);
+        else throw new Error('Combinação de formatos não suportada.');
         outBox.textContent = out; msg('Conversão concluída.');
-      }catch(e){ outBox.textContent = ''; msg(e.message, true); }
+      }catch(e){ outBox.textContent=''; msg(e.message, true); }
     });
 
     $('#btnFormat').addEventListener('click', ()=>{
       const m = modeSel.value;
       try{
         if(m==='JSON') inBox.value = prettyJson(inBox.value);
-        else outBox.textContent = outBox.textContent; // noop
+        else inBox.value = prettyXml(normalizeLooseXml(inBox.value));
         msg('Entrada formatada.');
       }catch(e){ msg('Não foi possível formatar a entrada: '+e.message, true); }
     });
@@ -238,13 +305,15 @@
     });
 
     $('#btnDownload').addEventListener('click', ()=>{
-      const m = modeSel.value; const isXml = (m==='JSON');
+      const o = outSel.value; const isXml = (o==='XML');
       const blob = new Blob([outBox.textContent||''], {type: isXml ? 'application/xml;charset=utf-8' : 'application/json;charset=utf-8'});
       const url = URL.createObjectURL(blob); const a=document.createElement('a');
-      a.href=url; a.download = isXml ? 'saida.xml' : 'saida.json'; a.click(); URL.revokeObjectURL(url);
+      a.href=url; a.download = isXml ? 'saida.xml' : (o==='INTELIGENTE' ? 'saida.inteligente.json' : 'saida.json');
+      a.click(); URL.revokeObjectURL(url);
     });
 
     modeSel.addEventListener('change', updateUi);
+    outSel.addEventListener('change', ()=>{ outTitle.textContent = `Saída (${outSel.value})`; });
     updateUi();
   </script>
 </body>
