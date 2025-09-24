@@ -106,57 +106,77 @@
     function toNumOrStr(v){ if(v===undefined||v===null) return v; const n=Number(v); return Number.isFinite(n)&&String(n)===String(v).trim()? n : String(v); }
 
     // ---------- JSON → XML ----------
-    function jsonToXml(jsonStr){
-      let data; try{ data = JSON.parse(jsonStr); }catch(e){ throw new Error('JSON inválido: '+e.message); }
+        function jsonToXml(jsonStr){
+      let data;
+      try { data = JSON.parse(jsonStr); }
+      catch (e) { throw new Error('JSON inválido: ' + e.message); }
+    
       const root = data?.data?.fields ? data.data : data;
-      if(!root || !Array.isArray(root.fields)) throw new Error('Estrutura inesperada: não encontrei `fields`.');
-
-      const formPairs = [];
-      formPairs.push(['id', root.form_id]);
-      formPairs.push(['version', root.version]);
-      ;['color','machine_status','operador_status','operator_status','form_type'].forEach(k=>{ if(root[k]!==undefined) formPairs.push([k, root[k]]); });
-      if(Array.isArray(root.operator_types)) formPairs.push(['operator_types', root.operator_types.join(',')]);
-      if(Array.isArray(root.operator_statuses_allowed)) formPairs.push(['operator_statuses_allowed', root.operator_statuses_allowed.join(',')]);
-
-      let xml = `<?xml version="1.0"?>\n<form${formPairs.map(([k,v])=>attr(k,v)).join('')}>`;
-      if(root.title!==undefined) xml += `\n  <title>${escapeXml(String(root.title))}</title>`;
-
-      for(const f of root.fields){
+      if (!root || !Array.isArray(root.fields)) {
+        throw new Error('Estrutura inesperada: não encontrei `fields`.');
+      }
+    
+      // --- cabeçalho do <form> conforme sua regra ---
+      const formId   = root.form_id ?? root.id ?? '';
+      const version  = root.version ?? '';
+      const vDigits  = String(version).replace(/\D/g, '');           // só números
+      const clientId = (vDigits.slice(0, 4) || '0000');              // 4 primeiros dígitos
+    
+      let xml = `<?xml version="1.0"?>\n` +
+                `<form id="${escapeXml(formId)}" position="1" version="${escapeXml(version)}" client_id="${escapeXml(clientId)}" deprecated="false">`;
+    
+      // (opcional) manter título como elemento filho, não como atributo
+      if (root.title !== undefined) {
+        xml += `\n  <title>${escapeXml(String(root.title))}</title>`;
+      }
+    
+      // helper para dígitos do max (int)
+      const digitsFromMax = (maxVal)=>{
+        if(!Number.isFinite(maxVal) || maxVal <= 0) return undefined;
+        return String(Math.floor(maxVal)).length;
+      };
+    
+      for (const f of root.fields){
         const req = !!f.required;
         const title = String(f.title ?? '');
         const placeholder = String(f.placeholder ?? f.default ?? '');
-
-        xml += `\n  <item id="${escapeXml(f.id)}" required="${req?'true':'false'}">`;
+    
+        xml += `\n  <item id="${escapeXml(f.id)}" required="${req ? 'true' : 'false'}">`;
         xml += `\n    <title>${escapeXml(title)}</title>`;
-        if(placeholder) xml += `\n    <default>${escapeXml(placeholder)}</default>`;
-
-        if(f.type === 'int'){
-          const maxIntLen = Number.isFinite(f.max) ? String(Math.floor(Math.log10(f.max))+1) : undefined;
+        if (placeholder) xml += `\n    <default>${escapeXml(placeholder)}</default>`;
+    
+        if (f.type === 'int'){
           const minVal = Number.isFinite(f.min) ? f.min : undefined;
           const maxVal = Number.isFinite(f.max) ? f.max : undefined;
-          xml += `\n    <int-numpad-type${attr('max-int-len', maxIntLen||8)}${attr('min-int-val', minVal)}${attr('max-int-val', maxVal)} ></int>`;
-        } else if(f.type === 'single-select-type' || f.type === 'single-select'){
+          const maxIntLen = Number.isFinite(maxVal) ? digitsFromMax(maxVal) : undefined;
+          xml += `\n    <int-numpad-type${attr('max-int-len', maxIntLen ?? 8)}${attr('min-int-val', minVal)}${attr('max-int-val', maxVal)}></int-numpad-type>`;
+        } else if (f.type === 'single-select-type' || f.type === 'single-select' ||
+                   f.type === 'multi-select-type'  || f.type === 'multi-select'){
+          // usa sempre o mesmo contêiner; se você quiser separar multi/single em tags distintas, dá pra trocar aqui
           xml += `\n    <single-select-type>`;
-          const options = Array.isArray(f.options)? f.options : [];
-          for(const o of options){
-            const extra = [attr('id', o.id), attr('selected', o.selected?'true':'false')].join('');
-            const ms = attr('machine_status', o.machine_status);
-            const cv = attr('child_visibility', o.child_visibility);
-            const label = o.value ?? o.label ?? '';
-            xml += `\n      <option${extra}${ms}${cv}>${escapeXml(label)}</option>`;
+          const options = Array.isArray(f.options) ? f.options : [];
+          for (const o of options){
+            // aceita tuplas (INTELIGENTE) ou objetos
+            if (Array.isArray(o)){
+              const [oid, label, selected, machine_status, child_visibility] = o;
+              xml += `\n      <option${attr('id', oid)}${attr('selected', selected ? 'true':'false')}${attr('machine_status', machine_status)}${attr('child_visibility', child_visibility)}>${escapeXml(label ?? '')}</option>`;
+            } else {
+              const label = o.value ?? o.label ?? '';
+              xml += `\n      <option${attr('id', o.id)}${attr('selected', o.selected ? 'true':'false')}${attr('machine_status', o.machine_status)}${attr('child_visibility', o.child_visibility)}>${escapeXml(label)}</option>`;
+            }
           }
           xml += `\n    </single-select-type>`;
         } else {
-          const maxTextLen = Number.isFinite(f.max) ? String(String(f.max).length) : undefined;
-          xml += `\n    <keyboard-type${attr('max-text-len', maxTextLen)} ></keyboard>`;
+          const maxTextLen = Number.isFinite(f.max) ? f.max : undefined;
+          xml += `\n    <keyboard-type${attr('max-text-len', maxTextLen)}></keyboard-type>`;
         }
+    
         xml += `\n  </item>`;
       }
-
+    
       xml += `\n</form>`;
       return prettyXml(xml);
     }
-
     // ---------- XML → JSON (objeto) ----------
     function normalizeLooseXml(str){
       return str
@@ -338,5 +358,6 @@
   </script>
 </body>
 </html>
+
 
 
