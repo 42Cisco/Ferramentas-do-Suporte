@@ -219,31 +219,43 @@
 
     // ---------- JSON/XML → INTELIGENTE ----------
     function mapFieldToInt(f){
-      const out = {
-        id: f.id,
-        placeholder: f.placeholder ?? '',
-        title: f.title ?? '',
-        type: (f.type === 'single-select-type') ? 'single-select' : (f.type || ''),
-        required: !!f.required
-      };
-      if(out.type === 'int'){
-        if(Number.isFinite(f.min)) out.min = f.min;
-        if(Number.isFinite(f.max)) out.max = f.max;
-      }
-      const isSelect = (f.type === 'single-select-type' || f.type === 'single-select');
-      if(isSelect && Array.isArray(f.options)){
-        out.options = f.options.map(op => {
-          if(Array.isArray(op)) return op; // já está em formato INTELIGENTE
-          const tuple = [];
-          tuple.push(op.id);
-          tuple.push(op.value ?? op.label ?? '');
-          tuple.push(op.selected ? 1 : 0);
-          if(op.machine_status !== undefined) tuple.push(op.machine_status);
-          if(op.child_visibility !== undefined) tuple.push(op.child_visibility);
-          return tuple;
-        });
-      }
-      return out;
+  // normaliza o tipo para a saída INTELIGENTE
+  const isSingle = (f.type === 'single-select-type' || f.type === 'single-select');
+  const isMulti  = (f.type === 'multi-select-type'  || f.type === 'multi-select');
+
+  const out = {
+    id: f.id,
+    placeholder: f.placeholder ?? '',
+    title: f.title ?? '',
+    type: isSingle ? 'single-select' : (isMulti ? 'multi-select' : (f.type || '')),
+    required: !!f.required
+    };
+  
+    // limites para int
+    if(out.type === 'int'){
+      if(Number.isFinite(f.min)) out.min = f.min;
+      if(Number.isFinite(f.max)) out.max = f.max;
+    }
+  
+    // mapeia opções tanto para single quanto para multi
+    if ((isSingle || isMulti) && Array.isArray(f.options)){
+      out.options = f.options.map(op => {
+        // já está no formato INTELIGENTE (tupla)? devolve como está
+        if (Array.isArray(op)) return op;
+  
+        // objeto → tupla [id, label, selected(0/1), machine_status?, child_visibility?]
+        const tuple = [];
+        tuple.push(op.id);
+        tuple.push(op.value ?? op.label ?? '');
+        tuple.push(op.selected ? 1 : 0);
+        if (op.machine_status !== undefined) tuple.push(op.machine_status);
+        if (op.child_visibility !== undefined) tuple.push(op.child_visibility);
+        return tuple;
+      });
+    }
+  
+    return out;
+  }
     }
     function dataToInt(data){
       if(!data || !Array.isArray(data.fields)) throw new Error('Estrutura inesperada: não encontrei `fields`.');
@@ -318,3 +330,4 @@
   </script>
 </body>
 </html>
+
