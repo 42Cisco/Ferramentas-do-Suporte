@@ -219,56 +219,62 @@
 
     // ---------- JSON/XML → INTELIGENTE ----------
     function mapFieldToInt(f){
-  // normaliza o tipo para a saída INTELIGENTE
-  const isSingle = (f.type === 'single-select-type' || f.type === 'single-select');
-  const isMulti  = (f.type === 'multi-select-type'  || f.type === 'multi-select');
-
-  const out = {
-    id: f.id,
-    placeholder: f.placeholder ?? '',
-    title: f.title ?? '',
-    type: isSingle ? 'single-select' : (isMulti ? 'multi-select' : (f.type || '')),
-    required: !!f.required
-    };
-  
-    // limites para int
-    if(out.type === 'int'){
-      if(Number.isFinite(f.min)) out.min = f.min;
-      if(Number.isFinite(f.max)) out.max = f.max;
+      // normaliza tipos compatíveis
+      const isSingle = (f.type === 'single-select-type' || f.type === 'single-select');
+      const isMulti  = (f.type === 'multi-select-type'  || f.type === 'multi-select');
+    
+      const out = {
+        id: f.id,
+        placeholder: f.placeholder ?? '',
+        title: f.title ?? '',
+        type: isSingle ? 'single-select' : (isMulti ? 'multi-select' : (f.type || '')),
+        required: !!f.required
+      };
+    
+      // limites numéricos
+      if (out.type === 'int'){
+        if (Number.isFinite(f.min)) out.min = f.min;
+        if (Number.isFinite(f.max)) out.max = f.max;
+      }
+    
+      // mapeia opções (single e multi)
+      if ((isSingle || isMulti) && Array.isArray(f.options)){
+        out.options = f.options.map(op => {
+          // já é tupla INTELIGENTE
+          if (Array.isArray(op)) return op;
+    
+          // objeto -> [id, label, selected(0/1), machine_status?, child_visibility?]
+          const tuple = [];
+          tuple.push(op.id);
+          tuple.push(op.value ?? op.label ?? '');
+          tuple.push(op.selected ? 1 : 0);
+          if (op.machine_status !== undefined) tuple.push(op.machine_status);
+          if (op.child_visibility !== undefined) tuple.push(op.child_visibility);
+          return tuple;
+        });
+      }
+    
+      return out;
     }
-  
-    // mapeia opções tanto para single quanto para multi
-    if ((isSingle || isMulti) && Array.isArray(f.options)){
-      out.options = f.options.map(op => {
-        // já está no formato INTELIGENTE (tupla)? devolve como está
-        if (Array.isArray(op)) return op;
-  
-        // objeto → tupla [id, label, selected(0/1), machine_status?, child_visibility?]
-        const tuple = [];
-        tuple.push(op.id);
-        tuple.push(op.value ?? op.label ?? '');
-        tuple.push(op.selected ? 1 : 0);
-        if (op.machine_status !== undefined) tuple.push(op.machine_status);
-        if (op.child_visibility !== undefined) tuple.push(op.child_visibility);
-        return tuple;
-      });
-    }
-  
-    return out;
-  }
-    }
+    
     function dataToInt(data){
-      if(!data || !Array.isArray(data.fields)) throw new Error('Estrutura inesperada: não encontrei `fields`.');
+      if(!data || !Array.isArray(data.fields)) {
+        throw new Error('Estrutura inesperada: não encontrei `fields`.');
+      }
       return data.fields.map(mapFieldToInt);
     }
+    
     function jsonToInt(jsonStr){
-      let obj; try{ obj = JSON.parse(jsonStr); }catch(e){ throw new Error('JSON inválido: '+e.message); }
+      let obj;
+      try { obj = JSON.parse(jsonStr); }
+      catch(e){ throw new Error('JSON inválido: ' + e.message); }
       const root = obj?.data?.fields ? obj.data : obj;
       const arr = dataToInt(root);
       return prettyJson(arr);
     }
+    
     function xmlToInt(xmlStr){
-      const obj = xmlToJsonObject(xmlStr); // {type, data}
+      const obj = xmlToJsonObject(xmlStr); // { type, data }
       const arr = dataToInt(obj.data);
       return prettyJson(arr);
     }
@@ -324,10 +330,13 @@
       a.click(); URL.revokeObjectURL(url);
     });
 
-    modeSel.addEventListener('change', updateUi);
-    outSel.addEventListener('change', ()=>{ outTitle.textContent = `Saída (${outSel.value})`; });
+    outSel.addEventListener('change', ()=>{
+    outTitle.textContent = `Saída (${outSel.value})`;
+    msg(outSel.value === 'INTELIGENTE'? 'Saída INTELIGENTE: array de campos no formato [{ id, title, placeholder, type, required, ... }].': '');
+    });
     updateUi();
   </script>
 </body>
 </html>
+
 
