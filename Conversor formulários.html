@@ -97,13 +97,52 @@
         .replace(/\"/g, '&quot;')
         .replace(/\'/g, '&apos;');
     }
-    function attr(k,v){ if(v===undefined||v===null||v==='') return ''; return ` ${k}="${escapeXml(String(v))}"`; }
-    function prettyXml(xml){
-      try{ xml = xml.replace(/\r?\n/g,'').replace(/\t/g,' ').replace(/>(\s*)</g, '>\n<'); let indent=0; const pad=n=>'  '.repeat(n);
-        return xml.split(/\n/).map(l=>{ const t=l.trim(); if(!t) return ''; if(t.startsWith('</')) indent=Math.max(0,indent-1); const out=pad(indent)+t; if(/^<[^!?][^>]*[^/]>(?!.*<\/)/.test(t) && !t.startsWith('</')) indent++; return out; }).join('\n'); }catch{ return xml; }
-    }
-    function prettyJson(obj){ try{ return JSON.stringify(typeof obj==='string'? JSON.parse(obj):obj,null,2); }catch{ return String(obj); } }
-    function toNumOrStr(v){ if(v===undefined||v===null) return v; const n=Number(v); return Number.isFinite(n)&&String(n)===String(v).trim()? n : String(v); }
+    function attr(k, v){
+  if (v === undefined || v === null || v === '') return '';
+  return ` ${k}="${escapeXml(String(v))}"`;
+}
+
+function prettyXml(xml){
+  try{
+    xml = xml.replace(/\r?\n/g,'').replace(/\t/g,' ');
+
+    // --- proteger pares compactos: ficam "><" sem quebra ---
+    const PROTECT = '__NO_NL__';
+    const COMPACT_CLOSE = '(?:int-numpad-type|keyboard-type)'; // adicione mais tags aqui se quiser
+    xml = xml.replace(new RegExp('>\\s*(?=</' + COMPACT_CLOSE + '>)', 'g'), PROTECT);
+
+    // quebras normais entre tags
+    xml = xml.replace(/>(\s*)</g, '>\n<');
+
+    // restaura os trechos protegidos sem quebra
+    xml = xml.replace(new RegExp(PROTECT, 'g'), '><');
+
+    let indent = 0;
+    const pad = n => '  '.repeat(n);
+
+    return xml.split('\n').map(l => {
+      const t = l.trim();
+      if (!t) return '';
+      if (t.startsWith('</')) indent = Math.max(0, indent - 1);
+      const out = pad(indent) + t;
+      if (/^<[^!?][^>]*[^/]>(?!.*<\/)/.test(t) && !t.startsWith('</')) indent++;
+      return out;
+    }).join('\n');
+  } catch {
+    return xml;
+  }
+}
+
+function prettyJson(obj){
+  try{ return JSON.stringify(typeof obj==='string' ? JSON.parse(obj) : obj, null, 2); }
+  catch{ return String(obj); }
+}
+
+function toNumOrStr(v){
+  if (v === undefined || v === null) return v;
+  const n = Number(v);
+  return Number.isFinite(n) && String(n) === String(v).trim() ? n : String(v);
+}
 
     // ---------- JSON → XML ----------
         function jsonToXml(jsonStr){
@@ -358,7 +397,3 @@
   </script>
 </body>
 </html>
-
-
-
-
