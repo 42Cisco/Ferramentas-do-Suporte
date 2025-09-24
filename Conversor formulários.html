@@ -51,6 +51,7 @@
       <button id="btnFormat">Formatar entrada</button>
       <button id="btnCopy">Copiar saída</button>
       <button id="btnDownload">Baixar saída</button>
+      <button id="btnClear" aria-label="Limpar entrada e saída">Limpar</button>
     </div>
 
     <div class="grid">
@@ -387,6 +388,26 @@ function toNumOrStr(v){
       const url = URL.createObjectURL(blob); const a=document.createElement('a');
       a.href=url; a.download = isXml ? 'saida.xml' : (o==='INTELIGENTE' ? 'saida.inteligente.json' : 'saida.json');
       a.click(); URL.revokeObjectURL(url);
+    });
+
+    $('#btnClear').addEventListener('click', ()=>{
+      // limpa campos
+      inBox.value = '';
+      outBox.textContent = '';
+      // limpa mensagens e estilos
+      msg('');
+      // opcional: remover classe de erro, caso tenha ficado
+      msgEl.className = 'muted';
+      // foco de volta na entrada
+      inBox.focus();
+    });
+
+    document.addEventListener('keydown', (e)=>{
+      const isMac = navigator.platform.toLowerCase().includes('mac');
+      if ((isMac ? e.metaKey : e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        $('#btnClear').click();
+      }
     });
 
     outSel.addEventListener('change', ()=>{
