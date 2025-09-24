@@ -223,59 +223,155 @@ function toNumOrStr(v){
         .replace(/<int-numpad-type([^>]*)>\s*<\/int>/gi, '<int-numpad-type$1></int-numpad-type>')
         .replace(/<keyboard-type([^>]*)>\s*<\/keyboard>/gi, '<keyboard-type$1></keyboard-type>');
     }
+
+    // ====== CABEÇALHOS PADRÃO (apenas para XML -> JSON) ======
+
+    const JSON_HEADERS_BY_FORM_ID = {
+      4101:   { form_type: "breakdown",        title: "AGUARDANDO MANUTENÇÃO",                 machine_status: 4,  operador_status: 3,  operator_types: [1,2,3,4,11,18,19], operator_statuses_allowed: [3] },
+      101004: { form_type: "workLunch",        title: "ALMOÇO",                                 machine_status: 11, operador_status: -1, operator_types: [1,2,4,11,18],       operator_statuses_allowed: [3] },
+      11310:  { form_type: "appropriation",    title: "APROPRIACAO DO EQUIPAMENTO",            machine_status: -1, operador_status: 2,  operator_types: [1,2,4,11,18],       operator_statuses_allowed: [1], color: "03A9F4" },
+      12120:  { form_type: "checklist",        title: "CHECKLIST",                              machine_status: 6,  operador_status: 3,  operator_types: [1,2,4,11,18],       operator_statuses_allowed: [2] },
+      10403:  { form_type: "expropriation",    title: "DESAPROPRIACAO DO EQUIPAMENTO",         machine_status: 2,  operador_status: 1,  operator_types: [1,2,4,11,18],       operator_statuses_allowed: [3] },
+      7720:   { form_type: "movingFull",       title: "DESLOCANDO CARREGADO",                  machine_status: 31, operador_status: 3,  operator_types: [1,2,4,11,18],       operator_statuses_allowed: [3] },
+      7520:   { form_type: "movingEmpty",      title: "DESLOCANDO VAZIO",                      machine_status: 29, operador_status: 3,  operator_types: [1,2,4,11,18],       operator_statuses_allowed: [3] },
+      5205:   { form_type: "end_supply",       title: "FIM ABASTECIMENTO/LUBRIFICAÇÃO",        machine_status: 2,  operador_status: -1, operator_types: [1,2,3,4,8,11,18],   operator_statuses_allowed: [3,4] },
+      4303:   { form_type: "end_maintenance",  title: "FIM DE MANUTENÇÃO",                      machine_status: -1, operador_status: 3,  operator_types: [1,2,3,11,18,19],    operator_statuses_allowed: [4] },
+      51001:  { form_type: "start_supply",     title: "INÍCIO ABASTECIMENTO / LUBRIFICAÇÃO",   machine_status: -1, operador_status: -1, operator_types: [1,2,3,4,8,11,18],   operator_statuses_allowed: [3,4] },
+      7021:   { form_type: "initLoad",         title: "INÍCIO DE CARREGAMENTO",                machine_status: 30, operador_status: 3,  operator_types: [1,2,4,11,18],       operator_statuses_allowed: [3] },
+      7121:   { form_type: "initUnload",       title: "INÍCIO DE DESCARREGAMENTO",             machine_status: 32, operador_status: 3,  operator_types: [1,2,4,11,18],       operator_statuses_allowed: [3] },
+      4201:   { form_type: "start_maintenance",title: "INÍCIO DE MANUTENÇÃO",                  machine_status: 5,  operador_status: 4,  operator_types: [1,2,3,11,18,19],    operator_statuses_allowed: [3] },
+      101005: { form_type: "workBreak",        title: "INTERVALO",                              machine_status: 39, operador_status: -1, operator_types: [1,2,4,11,18],       operator_statuses_allowed: [3] },
+      101080: { form_type: "operational_stop", title: "PARADA OPERACIONAL",                    machine_status: 6,  operador_status: 3,  operator_types: [1,2,4,11,18],       operator_statuses_allowed: [3] },
+    };
+
+    // completa/ajusta o cabeçalho conforme o form_id
+    function applyJsonHeaderForForm(data){
+      const fid = Number(data.form_id);
+      const tpl = JSON_HEADERS_BY_FORM_ID[fid];
+      if (!tpl) return data;
+
+      const title = (data.title !== undefined && String(data.title).trim() !== '')
+        ? data.title
+        : tpl.title;
+
+      const out = {
+        form_type: tpl.form_type,
+        form_id: data.form_id,
+        version: data.version,
+        title,
+        machine_status: tpl.machine_status,
+        operador_status: tpl.operador_status,
+        operator_types: Array.isArray(tpl.operator_types) ? [...tpl.operator_types] : [],
+        operator_statuses_allowed: Array.isArray(tpl.operator_statuses_allowed) ? [...tpl.operator_statuses_allowed] : [],
+        fields: data.fields
+      };
+      if (tpl.color) out.color = tpl.color;
+      return out;
+    }
+
+    // ordena o cabeçalho na ordem desejada
+    function orderJsonDataKeys(d){
+      const ordered = {
+        form_type: d.form_type,
+        form_id: d.form_id,
+        version: d.version,
+        title: d.title,
+      };
+      if (d.color !== undefined) ordered.color = d.color;
+      Object.assign(ordered, {
+        machine_status: d.machine_status,
+        operador_status: d.operador_status,
+        operator_types: d.operator_types,
+        operator_statuses_allowed: d.operator_statuses_allowed,
+        fields: d.fields
+      });
+      return ordered;
+    }
+
     function xmlToJsonObject(xmlStr){
       const clean = normalizeLooseXml(xmlStr);
       const doc = new DOMParser().parseFromString(clean, 'application/xml');
-      const perr = doc.querySelector('parsererror'); if(perr) throw new Error('XML inválido: ' + perr.textContent.replace(/\s+/g,' ').trim());
-      const form = doc.querySelector('form'); if(!form) throw new Error('Não encontrei <form> no XML.');
+      const perr = doc.querySelector('parsererror'); 
+      if(perr) throw new Error('XML inválido: ' + perr.textContent.replace(/\s+/g,' ').trim());
+
+      const form = doc.querySelector('form'); 
+      if(!form) throw new Error('Não encontrei <form> no XML.');
 
       const data = {};
       data.form_id = toNumOrStr(form.getAttribute('id'));
       data.version = toNumOrStr(form.getAttribute('version'));
-      ['color','machine_status','operador_status','operator_status','form_type'].forEach(k=>{ const v=form.getAttribute(k); if(v!==null) data[k]=toNumOrStr(v); });
-      const ot=form.getAttribute('operator_types'); if(ot) data.operator_types = ot.split(',').map(s=>toNumOrStr(s.trim()));
-      const osa=form.getAttribute('operator_statuses_allowed'); if(osa) data.operator_statuses_allowed = osa.split(',').map(s=>toNumOrStr(s.trim()));
 
-      const titleEl = form.querySelector(':scope > title'); if(titleEl) data.title = titleEl.textContent || '';
+      const titleEl = form.querySelector(':scope > title');
+      if(titleEl) data.title = titleEl.textContent || '';
 
       data.fields = [];
       form.querySelectorAll(':scope > item').forEach(item=>{
         const f = {};
         f.id = toNumOrStr(item.getAttribute('id'));
         f.required = String(item.getAttribute('required')).toLowerCase() === 'true';
-        const t=item.querySelector(':scope > title'); if(t) f.title = t.textContent || '';
-        const d=item.querySelector(':scope > default'); if(d) f.placeholder = d.textContent || '';
+
+        const t=item.querySelector(':scope > title'); 
+        if(t) f.title = t.textContent || '';
+
+        const dft=item.querySelector(':scope > default'); 
+        if(dft) f.placeholder = dft.textContent || '';
 
         const intNode = item.querySelector(':scope > int-numpad-type');
-        const selNode = item.querySelector(':scope > single-select-type');
+        const selNode = item.querySelector(':scope > single-select-type, :scope > multi-select-type');
         const keyNode = item.querySelector(':scope > keyboard-type');
 
-        if(selNode){
-          f.type = 'single-select-type'; f.options = [];
+        if (selNode){
+          const isMulti = selNode.tagName.toLowerCase() === 'multi-select-type';
+          f.type = isMulti ? 'multi-select-type' : 'single-select-type';
+          f.options = [];
           selNode.querySelectorAll('option').forEach(op=>{
-            const o={};
+            const o = {};
             o.id = toNumOrStr(op.getAttribute('id'));
-            const sel=(op.getAttribute('selected')||'').toLowerCase(); o.selected = sel==='true'||sel==='1'||sel==='yes';
+            const sel=(op.getAttribute('selected')||'').toLowerCase();
+            o.value = op.textContent || '';
+            o.selected = (sel==='true'||sel==='1'||sel==='yes');
             const ms=op.getAttribute('machine_status'); if(ms!==null) o.machine_status = toNumOrStr(ms);
             const cv=op.getAttribute('child_visibility'); if(cv!==null) o.child_visibility = toNumOrStr(cv);
-            o.value = op.textContent || '';
             f.options.push(o);
           });
-        } else if(intNode){
+
+          // Regra especial: TURNO
+          if ((f.title || '').trim().toUpperCase() === 'TURNO'){
+            f.type = 'single-select';
+            f.work_shift = true;
+          }
+
+        } else if (intNode){
           f.type = 'int';
-          const mil=intNode.getAttribute('min-int-val'); const mal=intNode.getAttribute('max-int-val'); const mlen=intNode.getAttribute('max-int-len');
-          if(mil!==null) f.min = toNumOrStr(mil); if(mal!==null) f.max = toNumOrStr(mal);
-          if(mlen && mal===null){ const n=Number(mlen); if(Number.isFinite(n)&&n>0&&n<=15){ f.max = Number('9'.repeat(n)); } }
-        } else if(keyNode){
-          f.type = 'keyboard-type'; const mtl=keyNode.getAttribute('max-text-len'); if(mtl!==null) f.max = toNumOrStr(mtl);
-        } else { f.type = 'keyboard-type'; }
+          const mil=intNode.getAttribute('min-int-val');
+          const mal=intNode.getAttribute('max-int-val');
+          const mlen=intNode.getAttribute('max-int-len');
+          if(mil!==null) f.min = toNumOrStr(mil);
+          if(mal!==null) f.max = toNumOrStr(mal);
+          if(mlen && mal===null){
+            const n=Number(mlen);
+            if(Number.isFinite(n)&&n>0&&n<=15){ f.max = Number('9'.repeat(n)); }
+          }
+        } else if (keyNode){
+          f.type = 'keyboard-type';
+          const mtl=keyNode.getAttribute('max-text-len'); 
+          if(mtl!==null) f.max = toNumOrStr(mtl);
+        } else {
+          f.type = 'keyboard-type';
+        }
 
         data.fields.push(f);
       });
 
-      return { type: 'addForm', data };
+      // aplica cabeçalho e ordena antes de retornar
+      const normalized = applyJsonHeaderForForm(data);
+      const ordered = orderJsonDataKeys(normalized);
+      return { type: 'addForm', data: ordered };
     }
-    function xmlToJson(xmlStr){ return prettyJson(xmlToJsonObject(xmlStr)); }
+
+    function xmlToJson(xmlStr){
+      return prettyJson(xmlToJsonObject(xmlStr));
+    }
 
     // ---------- JSON/XML → INTELIGENTE ----------
     function mapFieldToInt(f){
