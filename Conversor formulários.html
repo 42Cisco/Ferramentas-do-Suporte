@@ -116,7 +116,7 @@ function prettyXml(xml){
     xml = xml.replace(/>(\s*)</g, '>\n<');
 
     // restaura os trechos protegidos sem quebra
-    xml = xml.replace(new RegExp(PROTECT, 'g'), '><');
+    xml = xml.replace(new RegExp(PROTECT, 'g'), '>');
 
     let indent = 0;
     const pad = n => '  '.repeat(n);
@@ -524,4 +524,5 @@ function jsonToXml(jsonStr){
   </script>
 </body>
 </html>
+
 
