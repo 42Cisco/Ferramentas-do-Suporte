@@ -146,77 +146,84 @@ function toNumOrStr(v){
 }
 
     // ---------- JSON → XML ----------
-        function jsonToXml(jsonStr){
-      let data;
-      try { data = JSON.parse(jsonStr); }
-      catch (e) { throw new Error('JSON inválido: ' + e.message); }
-    
-      const root = data?.data?.fields ? data.data : data;
-      if (!root || !Array.isArray(root.fields)) {
-        throw new Error('Estrutura inesperada: não encontrei `fields`.');
-      }
-    
-      // --- cabeçalho do <form> conforme sua regra ---
-      const formId   = root.form_id ?? root.id ?? '';
-      const version  = root.version ?? '';
-      const vDigits  = String(version).replace(/\D/g, '');           // só números
-      const clientId = (vDigits.slice(0, 4) || '0000');              // 4 primeiros dígitos
-    
-      let xml = `<?xml version="1.0"?>\n` +
-                `<form id="${escapeXml(formId)}" position="1" version="${escapeXml(version)}" client_id="${escapeXml(clientId)}" deprecated="false">`;
-    
-      // (opcional) manter título como elemento filho, não como atributo
-      if (root.title !== undefined) {
-        xml += `\n  <title>${escapeXml(String(root.title))}</title>`;
-      }
-    
-      // helper para dígitos do max (int)
-      const digitsFromMax = (maxVal)=>{
-        if(!Number.isFinite(maxVal) || maxVal <= 0) return undefined;
-        return String(Math.floor(maxVal)).length;
-      };
-    
-      for (const f of root.fields){
-        const req = !!f.required;
-        const title = String(f.title ?? '');
-        const placeholder = String(f.placeholder ?? f.default ?? '');
-    
-        xml += `\n  <item id="${escapeXml(f.id)}" required="${req ? 'true' : 'false'}">`;
-        xml += `\n    <title>${escapeXml(title)}</title>`;
-        if (placeholder) xml += `\n    <default>${escapeXml(placeholder)}</default>`;
-    
-        if (f.type === 'int'){
-          const minVal = Number.isFinite(f.min) ? f.min : undefined;
-          const maxVal = Number.isFinite(f.max) ? f.max : undefined;
-          const maxIntLen = Number.isFinite(maxVal) ? digitsFromMax(maxVal) : undefined;
-          xml += `\n    <int-numpad-type${attr('max-int-len', maxIntLen ?? 8)}${attr('min-int-val', minVal)}${attr('max-int-val', maxVal)}></int-numpad-type>`;
-        } else if (f.type === 'single-select-type' || f.type === 'single-select' ||
-                   f.type === 'multi-select-type'  || f.type === 'multi-select'){
-          // usa sempre o mesmo contêiner; se você quiser separar multi/single em tags distintas, dá pra trocar aqui
-          xml += `\n    <single-select-type>`;
-          const options = Array.isArray(f.options) ? f.options : [];
-          for (const o of options){
-            // aceita tuplas (INTELIGENTE) ou objetos
-            if (Array.isArray(o)){
-              const [oid, label, selected, machine_status, child_visibility] = o;
-              xml += `\n      <option${attr('id', oid)}${attr('selected', selected ? 'true':'false')}${attr('machine_status', machine_status)}${attr('child_visibility', child_visibility)}>${escapeXml(label ?? '')}</option>`;
-            } else {
-              const label = o.value ?? o.label ?? '';
-              xml += `\n      <option${attr('id', o.id)}${attr('selected', o.selected ? 'true':'false')}${attr('machine_status', o.machine_status)}${attr('child_visibility', o.child_visibility)}>${escapeXml(label)}</option>`;
-            }
-          }
-          xml += `\n    </single-select-type>`;
+function jsonToXml(jsonStr){
+  let data;
+  try { data = JSON.parse(jsonStr); }
+  catch (e) { throw new Error('JSON inválido: ' + e.message); }
+
+  const root = data?.data?.fields ? data.data : data;
+  if (!root || !Array.isArray(root.fields)) {
+    throw new Error('Estrutura inesperada: não encontrei `fields`.');
+  }
+
+  // --- cabeçalho do <form> conforme regra ---
+  const formId   = root.form_id ?? root.id ?? '';
+  const version  = root.version ?? '';
+  const vDigits  = String(version).replace(/\D/g, '');      // só números
+  const clientId = (vDigits.slice(0, 4) || '0000');         // 4 primeiros dígitos
+
+  let xml = `<?xml version="1.0"?>\n` +
+            `<form id="${escapeXml(formId)}" position="1" version="${escapeXml(version)}" client_id="${escapeXml(clientId)}" deprecated="false">`;
+
+  if (root.title !== undefined) {
+    xml += `\n  <title>${escapeXml(String(root.title))}</title>`;
+  }
+
+  // helper: número de dígitos de um max int
+  const digitsFromMax = (maxVal)=>{
+    if(!Number.isFinite(maxVal) || maxVal <= 0) return undefined;
+    return String(Math.floor(maxVal)).length;
+  };
+
+  for (const f of root.fields){
+    const req  = !!f.required;
+    const type = String(f.type || '').toLowerCase();  // normaliza
+    const title = String(f.title ?? '');
+    const placeholder = String(f.placeholder ?? f.default ?? '');
+
+    xml += `\n  <item id="${escapeXml(f.id)}" required="${req ? 'true' : 'false'}">`;
+    xml += `\n    <title>${escapeXml(title)}</title>`;
+    if (placeholder) xml += `\n    <default>${escapeXml(placeholder)}</default>`;
+
+    if (type === 'int'){
+      const minVal = Number.isFinite(f.min) ? f.min : undefined;
+      const maxVal = Number.isFinite(f.max) ? f.max : undefined;
+      const maxIntLen = Number.isFinite(maxVal) ? digitsFromMax(maxVal) : undefined;
+      // mantém abertura + fechamento na MESMA LINHA (prettyXml não vai quebrar por causa da proteção que adicionamos)
+      xml += `\n    <int-numpad-type${attr('max-int-len', maxIntLen ?? 8)}${attr('min-int-val', minVal)}${attr('max-int-val', maxVal)}></int-numpad-type>`;
+
+    } else if (
+      type === 'single-select-type' || type === 'single-select' ||
+      type === 'multi-select-type'  || type === 'multi-select'  ||
+      type === 'operation-type'   // << suporta operation-type como select
+    ){
+      // usa <single-select-type> como contêiner padrão
+      xml += `\n    <single-select-type>`;
+      const options = Array.isArray(f.options) ? f.options : [];
+      for (const o of options){
+        if (Array.isArray(o)){
+          // tupla estilo INTELIGENTE: [id, label, selected(0/1), machine_status?, child_visibility?]
+          const [oid, label, selected, machine_status, child_visibility] = o;
+          xml += `\n      <option${attr('id', oid)}${attr('selected', selected ? 'true':'false')}${attr('machine_status', machine_status)}${attr('child_visibility', child_visibility)}>${escapeXml(label ?? '')}</option>`;
         } else {
-          const maxTextLen = Number.isFinite(f.max) ? f.max : undefined;
-          xml += `\n    <keyboard-type${attr('max-text-len', maxTextLen)}></keyboard-type>`;
+          // objeto padrão
+          const label = o.value ?? o.label ?? '';
+          xml += `\n      <option${attr('id', o.id)}${attr('selected', o.selected ? 'true':'false')}${attr('machine_status', o.machine_status)}${attr('child_visibility', o.child_visibility)}>${escapeXml(label)}</option>`;
         }
-    
-        xml += `\n  </item>`;
       }
-    
-      xml += `\n</form>`;
-      return prettyXml(xml);
+      xml += `\n    </single-select-type>`;
+
+    } else {
+      const maxTextLen = Number.isFinite(f.max) ? f.max : undefined;
+      xml += `\n    <keyboard-type${attr('max-text-len', maxTextLen)}></keyboard-type>`;
     }
+
+    xml += `\n  </item>`;
+  }
+
+  xml += `\n</form>`;
+  return prettyXml(xml);
+}
     // ---------- XML → JSON (objeto) ----------
     function normalizeLooseXml(str){
       return str
@@ -374,44 +381,47 @@ function toNumOrStr(v){
     }
 
     // ---------- JSON/XML → INTELIGENTE ----------
+    // tipos que têm "options" (serão convertidos p/ tuplas no INTELIGENTE)
+    const SELECT_TYPES = new Set([
+      'single-select-type',
+      'single-select',
+      'multi-select-type',
+      'multi-select',
+      'operation-type'     // <— novo
+    ]);
+
     function mapFieldToInt(f){
-      // normaliza tipos compatíveis
-      const isSingle = (f.type === 'single-select-type' || f.type === 'single-select');
-      const isMulti  = (f.type === 'multi-select-type'  || f.type === 'multi-select');
-    
-      const out = {
-        id: f.id,
-        placeholder: f.placeholder ?? '',
-        title: f.title ?? '',
-        type: isSingle ? 'single-select' : (isMulti ? 'multi-select' : (f.type || '')),
-        required: !!f.required
-      };
-    
-      // limites numéricos
-      if (out.type === 'int'){
-        if (Number.isFinite(f.min)) out.min = f.min;
-        if (Number.isFinite(f.max)) out.max = f.max;
-      }
-    
-      // mapeia opções (single e multi)
-      if ((isSingle || isMulti) && Array.isArray(f.options)){
-        out.options = f.options.map(op => {
-          // já é tupla INTELIGENTE
-          if (Array.isArray(op)) return op;
-    
-          // objeto -> [id, label, selected(0/1), machine_status?, child_visibility?]
-          const tuple = [];
-          tuple.push(op.id);
-          tuple.push(op.value ?? op.label ?? '');
-          tuple.push(op.selected ? 1 : 0);
-          if (op.machine_status !== undefined) tuple.push(op.machine_status);
-          if (op.child_visibility !== undefined) tuple.push(op.child_visibility);
-          return tuple;
-        });
-      }
-    
-      return out;
+    const typeIn   = (f.type || '').trim();
+    const normType = (typeIn === 'single-select-type') ? 'single-select' : typeIn; // mantém "operation-type" como está
+  
+    const out = {
+      id: f.id,
+      placeholder: f.placeholder ?? '',
+      title: f.title ?? '',
+      type: normType,
+      required: !!f.required
+    };
+  
+    if (normType === 'int'){
+      if (Number.isFinite(f.min)) out.min = f.min;
+      if (Number.isFinite(f.max)) out.max = f.max;
     }
+  
+    const isSelect = SELECT_TYPES.has(typeIn) || SELECT_TYPES.has(normType);
+    if (isSelect && Array.isArray(f.options)){
+      out.options = f.options.map(op => {
+        if (Array.isArray(op)) return op; // já está no formato INTELIGENTE
+        const tuple = [];
+        tuple.push(op.id);
+        tuple.push(op.value ?? op.label ?? '');
+        tuple.push(op.selected ? 1 : 0);
+        if (op.machine_status !== undefined)   tuple.push(op.machine_status);
+        if (op.child_visibility !== undefined) tuple.push(op.child_visibility);
+        return tuple;
+      });
+    }
+    return out;
+  }
     
     function dataToInt(data){
       if(!data || !Array.isArray(data.fields)) {
@@ -514,3 +524,4 @@ function toNumOrStr(v){
   </script>
 </body>
 </html>
+
