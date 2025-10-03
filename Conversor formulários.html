@@ -38,6 +38,7 @@
       <select id="mode" aria-label="Formato de entrada">
         <option value="JSON">JSON</option>
         <option value="XML">XML</option>
+        <option value="SQL">SQL</option>
       </select>
 
       <label for="outMode">Saída:</label>
@@ -90,6 +91,63 @@
     const msg = (t, isErr=false) => { msgEl.textContent = t; msgEl.className = isErr ? 'error' : 'muted'; };
 
     // ---------- utils ----------
+
+    // Pega a raiz correta: aceita {type:'addForm', data:{...}} ou já {fields:[...]}, etc.
+function getFormRoot(obj){
+  if (obj && obj.type === 'addForm' && obj.data) return obj.data;
+  if (obj && obj.data && Array.isArray(obj.data.fields)) return obj.data;
+  if (obj && Array.isArray(obj.fields)) return obj;
+  throw new Error('Estrutura inesperada: não encontrei `fields`.');
+}
+
+// Corrige pequenos desvios que costumam vir das outras conversões
+function normalizeFieldsForSQL(fields){
+  return fields.map(f => {
+    const nf = {...f};
+
+    // 1) tipo "operation-type" deve virar "single-select"
+    if (String(nf.type || '').toLowerCase() === 'operation-type') {
+      nf.type = 'single-select';
+    }
+
+    // 2) renomear max_len -> "max-len" (mantém valor)
+    if (nf.hasOwnProperty('max_len') && !nf.hasOwnProperty('max-len')) {
+      nf['max-len'] = nf.max_len;
+      delete nf.max_len;
+    }
+
+    return nf;
+  });
+}
+
+// Minifica sem alterar conteúdo
+function jsonMin(v){ return JSON.stringify(v); }
+
+
+    function detectInputFormat(str){
+    const s = String(str || '').trim();
+    if (!s) return null;
+
+    // 1) tenta JSON primeiro
+    try { JSON.parse(s); return 'JSON'; } catch {}
+
+    // 2) heurística p/ SQL (literal ou INSERT com literal)
+    // - começa e termina com aspas simples
+    // - OU contém INSERT/VALUES e um literal entre aspas simples
+    if (/^'.*'$/.test(s) || /\binsert\b|\bvalues\b/i.test(s)) {
+      // se conseguir extrair um literal SQL plausível, considera SQL
+      try {
+        const lit = extractFirstSqlStringLiteral(s);
+        if (lit != null) return 'SQL';
+      } catch {}
+    }
+
+    // 3) heurística p/ XML
+    if (/^<\?xml[\s\S]*\?>/i.test(s) || /^<\s*form[\s>]/i.test(s) || /^<\s*[a-zA-Z]/.test(s)) return 'XML';
+
+    return null;
+  }
+
     function escapeXml(str=""){
       return String(str)
         .replace(/&/g, '&amp;')
@@ -102,6 +160,59 @@
   if (v === undefined || v === null || v === '') return '';
   return ` ${k}="${escapeXml(String(v))}"`;
 }
+
+// Converte texto JSON -> literal SQL seguro: envolve em aspas simples
+// e duplica aspas simples internas (padrão ANSI SQL).
+function toSqlLiteral(jsonTextMinified){
+  return "'" + String(jsonTextMinified).replace(/'/g, "''") + "'";
+}
+
+// Extrai o PRIMEIRO literal de string SQL de uma query/linha.
+// Suporta escapes ANSI ('' -> ').
+function extractFirstSqlStringLiteral(sql){
+  const s = String(sql || '');
+  const start = s.indexOf("'");
+  if (start === -1) return null;
+
+  let i = start + 1;
+  let out = '';
+  while (i < s.length) {
+    const ch = s[i];
+    if (ch === "'") {
+      // duas aspas simples seguidas -> escape
+      if (s[i + 1] === "'") {
+        out += "'";
+        i += 2;
+        continue;
+      } else {
+        // fim do literal
+        return out;
+      }
+    } else {
+      out += ch;
+      i++;
+    }
+  }
+  // se chegou aqui, faltou fechar aspas
+  throw new Error('Literal SQL não está fechado com aspas simples.');
+}
+
+// SQL -> texto JSON minificado/normal:
+// 1) extrai literal (ou usa o próprio conteúdo sem aspas, se for apenas um literal cru)
+// 2) retorna a string extraída (sem aspas) já com '' -> ' desfeito
+function fromSqlLiteral(sql){
+  const trimmed = String(sql || '').trim();
+  if (trimmed.startsWith("'") && trimmed.endsWith("'")) {
+    // literal puro
+    const inner = trimmed.slice(1, -1).replace(/''/g, "'");
+    return inner;
+  }
+  // tenta extrair de um comando (INSERT/UPDATE/VALUES etc.)
+  const lit = extractFirstSqlStringLiteral(trimmed);
+  if (lit == null) throw new Error('Não encontrei literal SQL entre aspas simples.');
+  return lit;
+}
+
 
 function prettyXml(xml){
   try{
@@ -143,6 +254,64 @@ function toNumOrStr(v){
   if (v === undefined || v === null) return v;
   const n = Number(v);
   return Number.isFinite(n) && String(n) === String(v).trim() ? n : String(v);
+}
+
+function compactJsonString(src){
+  const obj = JSON.parse(String(src || '').trim());
+  return JSON.stringify(obj); // minificado
+}
+
+function jsonToSql(jsonStr){
+  // 1) Parse e raiz
+  const raw = JSON.parse(String(jsonStr || '').trim());
+  const root = getFormRoot(raw);
+
+  // 2) Extrair colunas do INSERT
+  const form_id            = root.form_id ?? root.id;
+  const version            = root.version ?? '';
+  const title              = root.title ?? '';
+  const color              = root.color ?? null;
+  const machine_status_id  = root.machine_status ?? null;
+  const operador_status_id = root.operador_status ?? null;
+  const form_type          = root.form_type ?? '';
+
+  if (form_id == null) throw new Error('Campo obrigatório ausente: form_id.');
+
+  // 3) Campo JSON "field": somente {"fields":[...]} minificado
+  const fields = Array.isArray(root.fields) ? root.fields : [];
+  const fieldsFixed = normalizeFieldsForSQL(fields);
+  const fieldJsonMin = jsonMin({ fields: fieldsFixed });
+
+  // 4) Escapar strings p/ SQL (aspas simples duplicadas)
+  const esc = s => String(s).replace(/'/g, "''");
+
+  // 5) Montar INSERT no formato pedido
+  const sql =
+`INSERT INTO smartfleet.message_forms (form_id,
+                                      field,
+                                      version,
+                                      title,
+                                      color,
+                                      machine_status_id,
+                                      operador_status_id,
+                                      form_type)
+VALUES (${Number(form_id)},
+        '${esc(fieldJsonMin)}',
+        ${Number(version)},
+        '${esc(title)}',
+        ${color == null ? 'NULL' : `'${esc(color)}'`},
+        ${machine_status_id == null ? 'NULL' : Number(machine_status_id)},
+        ${operador_status_id == null ? 'NULL' : Number(operador_status_id)},
+        '${esc(form_type)}');`;
+
+  return sql;
+}
+
+function sqlToJson(sqlStr){
+  const jsonText = fromSqlLiteral(sqlStr); // conteúdo entre aspas ('' desfeito)
+  // valida que é JSON mesmo; se ok, "prettifica" para saída
+  const obj = JSON.parse(jsonText);
+  return prettyJson(obj);
 }
 
     // ---------- JSON → XML ----------
@@ -446,33 +615,99 @@ function jsonToXml(jsonStr){
     }
 
     // ---------- UI ----------
-    function updateUi(){
-      const m = modeSel.value; const o = outSel.value;
-      inTitle.textContent = `Entrada (${m})`;
-      outTitle.textContent = `Saída (${o})`;
-      inBox.placeholder = m==='JSON' ? 'Cole aqui seu JSON...' : 'Cole aqui seu XML...';
-      // se entrada for JSON, default saída XML; se entrada for XML, default saída JSON (não forçar se usuário já escolheu INTELIGENTE)
-      if(o==='INTELIGENTE') return; // respeita escolha
-      outSel.value = (m==='JSON') ? 'XML' : 'JSON';
-      outTitle.textContent = `Saída (${outSel.value})`;
-      outBox.textContent = '';
-      msg('');
+function updateUi(){
+  const m = modeSel.value;
+  const prevOut = outSel.value;
+
+  // 0) Reabilitar todas as opções de saída antes de aplicar regras
+  [...outSel.options].forEach(opt => { opt.disabled = false; });
+
+  // 1) Remover a opção SQL (caso exista) para recriar quando preciso
+  [...outSel.options].forEach(opt => {
+    if (opt.value === 'SQL') outSel.removeChild(opt);
+  });
+
+  // 2) Regras por tipo de ENTRADA
+  if (m === 'JSON') {
+    // Adiciona SQL como saída extra
+    const opt = document.createElement('option');
+    opt.value = 'SQL';
+    opt.textContent = 'SQL';
+    outSel.appendChild(opt);
+
+    // Desabilita saída JSON (não faz sentido JSON→JSON aqui)
+    [...outSel.options].forEach(opt => {
+      if (opt.value === 'JSON') opt.disabled = true;
+    });
+
+    // Ajusta valor de saída se o anterior não for válido
+    if (!['XML','INTELIGENTE','SQL'].includes(prevOut)) {
+      outSel.value = 'XML';
+    } else {
+      outSel.value = prevOut;
     }
 
-    $('#btnConvert').addEventListener('click', ()=>{
-      try{
-        const m = modeSel.value; const o = outSel.value; const input = inBox.value;
-        let out='';
-        if(m==='JSON' && o==='XML') out = jsonToXml(input);
-        else if(m==='JSON' && o==='JSON') out = prettyJson(input);
-        else if(m==='JSON' && o==='INTELIGENTE') out = jsonToInt(input);
-        else if(m==='XML' && o==='JSON') out = xmlToJson(input);
-        else if(m==='XML' && o==='XML') out = prettyXml(normalizeLooseXml(input));
-        else if(m==='XML' && o==='INTELIGENTE') out = xmlToInt(input);
-        else throw new Error('Combinação de formatos não suportada.');
-        outBox.textContent = out; msg('Conversão concluída.');
-      }catch(e){ outBox.textContent=''; msg(e.message, true); }
+  } else if (m === 'SQL') {
+    // Entrada SQL: só JSON habilitado
+    outSel.value = 'JSON';
+    [...outSel.options].forEach(opt => {
+      opt.disabled = (opt.value !== 'JSON');
     });
+
+  } else if (m === 'XML') {
+    // Entrada XML: permitir JSON e INTELIGENTE, mas não XML
+    [...outSel.options].forEach(opt => {
+      if (opt.value === 'XML') opt.disabled = true;
+    });
+
+    if (['JSON','INTELIGENTE'].includes(prevOut)) {
+      outSel.value = prevOut;
+    } else {
+      outSel.value = 'JSON';
+    }
+  }
+
+  // 3) Atualiza títulos e placeholder
+  inTitle.textContent  = `Entrada (${m})`;
+  outTitle.textContent = `Saída (${outSel.value})`;
+  inBox.placeholder = (
+    m === 'JSON' ? 'Cole aqui seu JSON...' :
+    m === 'XML'  ? 'Cole aqui seu XML...'  :
+                   'Cole aqui seu SQL (literal ou INSERT contendo o literal)...'
+  );
+
+  // 4) Limpa saída e mensagem
+  outBox.textContent = '';
+  msg('');
+}
+
+    $('#btnConvert').addEventListener('click', ()=>{
+  try{
+    const m = modeSel.value; 
+    const o = outSel.value; 
+    const input = inBox.value;
+    let out='';
+
+    if (m==='JSON' && o==='XML') out = jsonToXml(input);
+    else if (m==='JSON' && o==='JSON') out = prettyJson(input);
+    else if (m==='JSON' && o==='INTELIGENTE') out = jsonToInt(input);
+    else if (m==='JSON' && o==='SQL') out = jsonToSql(input);
+
+    else if (m==='XML' && o==='JSON') out = xmlToJson(input);
+    else if (m==='XML' && o==='XML') out = prettyXml(normalizeLooseXml(input));
+    else if (m==='XML' && o==='INTELIGENTE') out = xmlToInt(input);
+
+    else if (m==='SQL' && o==='JSON') out = sqlToJson(input);
+
+    else throw new Error('Combinação de formatos não suportada.');
+
+    outBox.textContent = out; 
+    msg('Conversão concluída.');
+  }catch(e){ 
+    outBox.textContent=''; 
+    msg(e.message, true); 
+  }
+});
 
     $('#btnFormat').addEventListener('click', ()=>{
       const m = modeSel.value;
@@ -521,8 +756,19 @@ function jsonToXml(jsonStr){
     msg(outSel.value === 'INTELIGENTE'? 'Saída INTELIGENTE: array de campos no formato [{ id, title, placeholder, type, required, ... }].': '');
     });
     updateUi();
+
+    inBox.addEventListener('input', () => {
+    const guess = detectInputFormat(inBox.value);
+    if (guess && modeSel.value !== guess) {
+      modeSel.value = guess;
+      updateUi();
+    }
+  });
+
+  modeSel.addEventListener('change', ()=>{
+  updateUi();
+});
+
   </script>
 </body>
 </html>
-
-
