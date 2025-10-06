@@ -361,26 +361,31 @@ function jsonToXml(jsonStr){
       // mantém abertura + fechamento na MESMA LINHA (prettyXml não vai quebrar por causa da proteção que adicionamos)
       xml += `\n    <int-numpad-type${attr('max-int-len', maxIntLen ?? 8)}${attr('min-int-val', minVal)}${attr('max-int-val', maxVal)}></int-numpad-type>`;
 
-    } else if (
-      type === 'single-select-type' || type === 'single-select' ||
-      type === 'multi-select-type'  || type === 'multi-select'  ||
-      type === 'operation-type'   // << suporta operation-type como select
-    ){
-      // usa <single-select-type> como contêiner padrão
-      xml += `\n    <single-select-type>`;
-      const options = Array.isArray(f.options) ? f.options : [];
-      for (const o of options){
-        if (Array.isArray(o)){
-          // tupla estilo INTELIGENTE: [id, label, selected(0/1), machine_status?, child_visibility?]
-          const [oid, label, selected, machine_status, child_visibility] = o;
-          xml += `\n      <option${attr('id', oid)}${attr('selected', selected ? 'true':'false')}${attr('machine_status', machine_status)}${attr('child_visibility', child_visibility)}>${escapeXml(label ?? '')}</option>`;
-        } else {
-          // objeto padrão
-          const label = o.value ?? o.label ?? '';
-          xml += `\n      <option${attr('id', o.id)}${attr('selected', o.selected ? 'true':'false')}${attr('machine_status', o.machine_status)}${attr('child_visibility', o.child_visibility)}>${escapeXml(label)}</option>`;
-        }
-      }
-      xml += `\n    </single-select-type>`;
+} else if (
+  type === 'single-select-type' || type === 'single-select' ||
+  type === 'multi-select-type'  || type === 'multi-select'  ||
+  type === 'operation-type' // suporta como select
+){
+  // usa <single-select-type> como contêiner padrão
+  xml += `\n    <single-select-type>`;
+  const options = Array.isArray(f.options) ? f.options : [];
+
+  for (const o of options){
+    // --- NORMALIZAÇÃO: sempre ignorar metadados específicos de item ---
+    // Permitidos: id (opcional), selected (opcional), texto (obrigatório)
+    if (Array.isArray(o)){
+      // tupla INTELIGENTE: [id, label, selected(0/1), ...extras_ignorados]
+      const [oid, label, selected] = o;
+      const selAttr = selected ? 'true' : 'false';
+      xml += `\n      <option${attr('id', oid)}${attr('selected', selected ? 'true':'false')}>${escapeXml(label ?? '')}</option>`;
+    } else {
+      // objeto padrão: usar apenas id, selected e value/label como texto
+      const label = o.value ?? o.label ?? '';
+      const selected = !!o.selected;
+      xml += `\n      <option${attr('id', o.id)}${attr('selected', selected ? 'true':'false')}>${escapeXml(label)}</option>`;
+    }
+  }
+  xml += `\n    </single-select-type>`;
 
     } else {
       const maxTextLen = Number.isFinite(f.max) ? f.max : undefined;
@@ -550,69 +555,124 @@ function jsonToXml(jsonStr){
     }
 
     // ---------- JSON/XML → INTELIGENTE ----------
-    // tipos que têm "options" (serão convertidos p/ tuplas no INTELIGENTE)
-    const SELECT_TYPES = new Set([
-      'single-select-type',
-      'single-select',
-      'multi-select-type',
-      'multi-select',
-      'operation-type'     // <— novo
-    ]);
+// 👉 Normalizador de campos: corrige aliases e tipos
+function normalizeFieldAliases(f){
+  const out = {...f};
 
-    function mapFieldToInt(f){
-    const typeIn   = (f.type || '').trim();
-    const normType = (typeIn === 'single-select-type') ? 'single-select' : typeIn; // mantém "operation-type" como está
-  
-    const out = {
-      id: f.id,
-      placeholder: f.placeholder ?? '',
-      title: f.title ?? '',
-      type: normType,
-      required: !!f.required
-    };
-  
-    if (normType === 'int'){
-      if (Number.isFinite(f.min)) out.min = f.min;
-      if (Number.isFinite(f.max)) out.max = f.max;
+  // normaliza nomes de tipo
+  const t = String(out.type || '').toLowerCase();
+  if (t === 'text' || t === 'string' || t === 'keyboard') out.type = 'keyboard-type';
+  if (t === 'single-select') out.type = 'single-select-type';
+  if (t === 'multi-select')  out.type = 'multi-select-type';
+
+  // converte min-len / max-len → min / max
+  if (out['min-len'] != null && out.min == null) out.min = Number(out['min-len']);
+  if (out['max-len'] != null && out.max == null) out.max = Number(out['max-len']);
+
+  // tenta converter números que vieram como string
+  ['id','min','max'].forEach(k=>{
+    if (out[k] != null && !Number.isFinite(out[k])) {
+      const n = Number(out[k]);
+      if (Number.isFinite(n)) out[k] = n;
     }
-  
-    const isSelect = SELECT_TYPES.has(typeIn) || SELECT_TYPES.has(normType);
-    if (isSelect && Array.isArray(f.options)){
-      out.options = f.options.map(op => {
-        if (Array.isArray(op)) return op; // já está no formato INTELIGENTE
-        const tuple = [];
-        tuple.push(op.id);
-        tuple.push(op.value ?? op.label ?? '');
-        tuple.push(op.selected ? 1 : 0);
-        if (op.machine_status !== undefined)   tuple.push(op.machine_status);
-        if (op.child_visibility !== undefined) tuple.push(op.child_visibility);
-        return tuple;
-      });
-    }
-    return out;
+  });
+
+  return out;
+}
+
+// tipos que têm "options" (serão convertidos p/ tuplas no INTELIGENTE)
+const SELECT_TYPES = new Set([
+  'single-select-type',
+  'single-select',
+  'multi-select-type',
+  'multi-select',
+  'operation-type' // tratado como select e normalizado p/ single-select
+]);
+
+function mapFieldToInt(fRaw){
+  const f = normalizeFieldAliases(fRaw);
+
+  const typeIn = (f.type || '').trim();
+
+  // normalização básica (NÃO normaliza operation-type)
+  let normType = typeIn;
+  if (typeIn === 'single-select-type') normType = 'single-select';
+  if (typeIn === 'multi-select-type')  normType = 'multi-select';
+  // if (typeIn === 'operation-type')   normType = 'single-select'; // ← não aplicar
+
+  const out = {
+    id: f.id,
+    placeholder: f.placeholder ?? '',
+    title: f.title ?? '',
+    type: normType,
+    required: !!f.required
+  };
+
+  // int mantém min/max
+  if (normType === 'int'){
+    if (Number.isFinite(f.min)) out.min = f.min;
+    if (Number.isFinite(f.max)) out.max = f.max;
   }
-    
-    function dataToInt(data){
-      if(!data || !Array.isArray(data.fields)) {
-        throw new Error('Estrutura inesperada: não encontrei `fields`.');
+
+  // passar adiante confirmation_of quando existir (ex.: plot de confirmação)
+  if (f.confirmation_of !== undefined && f.confirmation_of !== null){
+    out.confirmation_of = f.confirmation_of;
+  }
+
+  // selects → tuplas
+  const isSelect = SELECT_TYPES.has(typeIn) || SELECT_TYPES.has(normType);
+  if (isSelect && Array.isArray(f.options)){
+    out.options = f.options.map(op => {
+      // já veio tupla? mantém
+      if (Array.isArray(op)) return op;
+
+      // objeto → [id, label, selected(0/1), msOrStatus(0 se ausente), child_visibility?, dynamic_option?]
+      const id    = op.id;
+      const label = (op.value ?? op.label ?? '');
+      const sel01 = op.selected ? 1 : 0;
+
+      // 4º item: machine_status → status_id → 0 (default)
+      let msOrStatus = (op.machine_status ?? op.status_id);
+      if (msOrStatus === undefined || msOrStatus === null || msOrStatus === '') {
+        msOrStatus = 0;
       }
-      return data.fields.map(mapFieldToInt);
-    }
-    
-    function jsonToInt(jsonStr){
-      let obj;
-      try { obj = JSON.parse(jsonStr); }
-      catch(e){ throw new Error('JSON inválido: ' + e.message); }
-      const root = obj?.data?.fields ? obj.data : obj;
-      const arr = dataToInt(root);
-      return prettyJson(arr);
-    }
-    
-    function xmlToInt(xmlStr){
-      const obj = xmlToJsonObject(xmlStr); // { type, data }
-      const arr = dataToInt(obj.data);
-      return prettyJson(arr);
-    }
+
+      const tuple = [id, label, sel01, msOrStatus];
+
+      // 5º: child_visibility (se houver)
+      if (op.child_visibility !== undefined && op.child_visibility !== null && op.child_visibility !== ''){
+        tuple.push(op.child_visibility);
+      }
+
+      // 6º: dynamic_option (se houver)
+      if (op.dynamic_option !== undefined && op.dynamic_option !== null && op.dynamic_option !== ''){
+        tuple.push(op.dynamic_option);
+      }
+
+      return tuple;
+    });
+  }
+
+  return out;
+}
+
+function dataToInt(data){
+  if(!data || !Array.isArray(data.fields)) {
+    throw new Error('Estrutura inesperada: não encontrei `fields`.');
+  }
+  return data.fields.map(mapFieldToInt);
+}
+
+function jsonToInt(jsonStr){
+  let obj;
+  try { obj = JSON.parse(jsonStr); }
+  catch(e){ throw new Error('JSON inválido: ' + e.message); }
+
+  // aceita { type:'addForm', data:{ fields:[] }} ou { fields:[] }
+  const root = obj?.data?.fields ? obj.data : obj;
+  const arr = dataToInt(root);
+  return prettyJson(arr);
+}
 
     // ---------- UI ----------
 function updateUi(){
