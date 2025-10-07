@@ -589,9 +589,35 @@ const SELECT_TYPES = new Set([
   'operation-type' // tratado como select e normalizado p/ single-select
 ]);
 
+// Normaliza listas para o padrão "INTELIGENTE":
+// - troca vírgula por ponto-e-vírgula em strings
+// - junta arrays com ';'
+// - suporta objeto { field, options } → "field-opt1;opt2"
+function toInteligenteList(v) {
+  if (v == null || v === '') return v;
+
+  // { field: 3, options: [1,2] } → "3-1;2"
+  if (typeof v === 'object' && !Array.isArray(v)) {
+    const field = v.field ?? v.campo ?? v.f ?? v.target ?? v.t;
+    const opts  = Array.isArray(v.options) ? v.options.join(';')
+               : (typeof v.options === 'string' ? v.options.replace(/,/g, ';') : v.options);
+    if (field != null && opts != null) return `${field}-${opts}`;
+  }
+
+  // [6,7] → "6;7"
+  if (Array.isArray(v)) return v.join(';');
+
+  // "6,7" → "6;7"  |  "3-1,2" → "3-1;2"
+  if (typeof v === 'string') return v.replace(/,/g, ';');
+
+  // número → string
+  if (typeof v === 'number') return String(v);
+
+  return v;
+}
+
 function mapFieldToInt(fRaw){
   const f = normalizeFieldAliases(fRaw);
-
   const typeIn = (f.type || '').trim();
 
   // normalização básica (NÃO normaliza operation-type)
@@ -619,12 +645,25 @@ function mapFieldToInt(fRaw){
     out.confirmation_of = f.confirmation_of;
   }
 
-  // selects → tuplas
+// selects → tuplas
   const isSelect = SELECT_TYPES.has(typeIn) || SELECT_TYPES.has(normType);
   if (isSelect && Array.isArray(f.options)){
     out.options = f.options.map(op => {
-      // já veio tupla? mantém
-      if (Array.isArray(op)) return op;
+      // já veio tupla? ainda assim aplica a normalização de separadores
+      if (Array.isArray(op)) {
+        const tuple = [...op];
+
+        // posição 4 (index 4) pode ser child_visibility
+        if (tuple.length >= 5 && tuple[4] !== undefined && tuple[4] !== null && tuple[4] !== '') {
+          tuple[4] = toInteligenteList(tuple[4]);
+        }
+        // posição 5 (index 5) pode ser dynamic_option
+        if (tuple.length >= 6 && tuple[5] !== undefined && tuple[5] !== null && tuple[5] !== '') {
+          tuple[5] = toInteligenteList(tuple[5]);
+        }
+
+        return tuple;
+      }
 
       // objeto → [id, label, selected(0/1), msOrStatus(0 se ausente), child_visibility?, dynamic_option?]
       const id    = op.id;
