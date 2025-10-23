@@ -1,0 +1,458 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Organizador de Placas – Semanas com Campos</title>
+<style>
+  :root {
+    --bg:#f8fafc; --panel:#fff; --muted:#64748b; --border:#e2e8f0; --panel-2:#f1f5f9;
+    --accent:#059669; --accent-2:#047857; --danger:#e11d48; --danger-2:#be123c;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:#0f172a;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+  .wrap{max-width:1280px;margin:24px auto;padding:0 16px}
+  h1{font-size:24px;margin:0 0 4px}
+  .muted{color:var(--muted);font-size:13px}
+  .row{display:grid;gap:16px;grid-template-columns:1fr}
+  @media (min-width:900px){.row{grid-template-columns:1fr 1fr}}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:16px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  textarea,input[type="text"],input[type="file"],input[type="date"]{width:100%;border:1px solid var(--border);border-radius:12px;padding:10px 12px;background:#fff;outline:none}
+  textarea:focus,input[type="text"]:focus,input[type="date"]:focus{box-shadow:0 0 0 3px #cbd5e1}
+  .btn{appearance:none;border:0;border-radius:999px;padding:10px 14px;font-size:14px;background:#fff;border:1px solid var(--border);box-shadow:0 1px 2px rgba(0,0,0,.06);cursor:pointer}
+  .btn:hover{background:#f8fafc}
+  .btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .btn.primary:hover{background:var(--accent-2)}
+  .btn.danger{background:var(--danger);color:#fff;border-color:var(--danger)}
+  .btn.danger:hover{background:var(--danger-2)}
+  .toolbar{display:flex;flex-wrap:wrap;gap:8px}
+
+  .table-wrap{overflow:auto;border:1px solid var(--border);border-radius:16px;background:#fff}
+  table{width:100%;border-collapse:separate;border-spacing:0;font-size:14px}
+  thead th{position:sticky;top:0;background:var(--panel-2);z-index:2;text-align:left;padding:8px 12px;border-bottom:1px solid var(--border)}
+  thead .sub th{top:36px;background:#fff}
+  tbody td{padding:8px 12px;border-top:1px solid #f1f5f9}
+
+  /* larguras mínimas por coluna */
+  .col-grupo      { min-width: 160px; }
+  .col-placa      { min-width: 100px; text-align:center; }
+  .col-posicao    { min-width: 140px; text-align:center; }
+  .col-endereco   { min-width: 420px; white-space: normal; line-height: 1.1; }
+  .col-equip      { min-width: 100px; text-align:center; }
+
+  /* separação por semana */
+  .sepL { border-left: 3px solid #94a3b8 !important; } /* início da semana */
+  .gutter { width: 12px; min-width: 12px; background: #e2e8f0; padding: 0; }
+
+  /* alternância de fundo por semana */
+  th.wk-sub.wk-0, td.wk.wk-0 { background: #f8fafc; }
+  th.wk-sub.wk-1, td.wk.wk-1 { background: #f1f5ff; }
+
+  /* cabeçalho da semana (com botões) */
+  .weekhead{display:flex;align-items:center;gap:6px}
+  .weekhead input[type="text"]{width:220px;padding:6px 8px;font-size:12px}
+  .weekhead .btn{padding:4px 8px;font-size:12px}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="card" style="display:flex;align-items:end;justify-content:space-between;gap:12px;">
+      <div>
+        <h1>Organizador de Placas</h1>
+        <div class="muted">Cole o CSV/TSV da semana (ex.: <code>GRUPO,PLACA,POSIÇÃO SERV,ENDEREÇO,EQUIPAMENTO</code>). Aceita TAB, ;, , ou múltiplos espaços. Com ou sem cabeçalho.</div>
+      </div>
+      <div class="toolbar">
+        <button id="btnExportCsv" class="btn">Exportar CSV (todas)</button>
+        <button id="btnExportXls" class="btn">Exportar Excel (todas)</button>
+        <button id="btnReset" class="btn danger">Apagar tudo</button>
+      </div>
+    </header>
+
+    <section class="row">
+      <div class="card">
+        <label class="muted">Cole aqui o <b>CSV/TSV da semana</b>.</label>
+        <textarea id="txtPaste" rows="8" placeholder="GRUPO,PLACA,POSIÇÃO SERV,ENDEREÇO,EQUIPAMENTO
+VEÍCULOS BALCÃO	JAM5J05	23/06/2024 03:10	Rua Pastor Heinrich...	GV50
+..."></textarea>
+        <div class="dates" style="margin-top:8px;">
+          <div>
+            <label class="muted" style="display:block;font-size:12px;">Início</label>
+            <input id="dtStart" type="date" />
+          </div>
+          <div>
+            <label class="muted" style="display:block;font-size:12px;">Fim</label>
+            <input id="dtEnd" type="date" />
+          </div>
+          <input id="inpWeekLabel" type="text" placeholder="dd/mm/aaaa a dd/mm/aaaa" style="flex:1;" />
+          <button id="btnAddWeek" class="btn primary">Adicionar semana (CSV)</button>
+        </div>
+        <div class="muted" style="margin-top:6px;">Rótulo no padrão <b>dd/mm/aaaa</b>. Pode digitar ou escolher no calendário.</div>
+      </div>
+
+      <div class="card">
+        <label class="muted">Filtrar por placa:</label>
+        <input id="inpFilter" type="text" placeholder="Digite parte da placa…" />
+        <div id="stats" class="muted" style="margin-top:6px;">—</div>
+      </div>
+    </section>
+
+    <section class="table-wrap" style="margin-top:16px;">
+      <table id="grid">
+        <thead>
+          <tr id="headRow"></tr>
+          <tr id="subHeadRow" class="sub"></tr>
+        </thead>
+        <tbody id="body"></tbody>
+      </table>
+    </section>
+
+    <footer class="muted" style="margin-top:12px;">Linhas fixas por placa (primeira aparição). Novas placas vão para o final. Dados variam por semana. Exporta CSV/Excel (todas) e também por semana.</footer>
+  </div>
+
+<script>
+(function(){
+  const LS = { plates:'op_plates_master_v3', weeks:'op_weeks_v3' };
+  const norm = (s)=> (s||'').toString().trim().toUpperCase();
+  const pad = (n)=> String(n).padStart(2,'0');
+  const fmtBR = (d)=> `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()}`;
+  const fmtISO = (d)=> `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+
+  // estado
+  let masterPlates = [];
+  /** week: { id, label, fields: string[], data: { [PLACA]: { [field]: string } } } */
+  let weeks = [];
+  let filter = '';
+
+  // carregar/salvar
+  try{
+    const p = JSON.parse(localStorage.getItem(LS.plates)||'[]');
+    const w = JSON.parse(localStorage.getItem(LS.weeks)||'[]');
+    if(Array.isArray(p)) masterPlates=p; if(Array.isArray(w)) weeks=w;
+  }catch(_){ }
+  const persist=()=>{ localStorage.setItem(LS.plates,JSON.stringify(masterPlates)); localStorage.setItem(LS.weeks,JSON.stringify(weeks)); };
+
+  // datas padrão (seg a dom)
+  const dtStart = document.getElementById('dtStart');
+  const dtEnd = document.getElementById('dtEnd');
+  const inpWeekLabel = document.getElementById('inpWeekLabel');
+  const setDefaultDates=()=>{
+    const t=new Date(); const d=t.getDay(); const diff=(d+6)%7;
+    const mon=new Date(t); mon.setDate(t.getDate()-diff);
+    const sun=new Date(mon); sun.setDate(mon.getDate()+6);
+    dtStart.value=fmtISO(mon); dtEnd.value=fmtISO(sun);
+    inpWeekLabel.value=`${fmtBR(mon)} a ${fmtBR(sun)}`;
+  };
+  const syncLabel=()=>{
+    if(!dtStart.value||!dtEnd.value) return;
+    const [y1,m1,d1]=dtStart.value.split('-').map(Number);
+    const [y2,m2,d2]=dtEnd.value.split('-').map(Number);
+    const a=new Date(y1,m1-1,d1); const b=new Date(y2,m2-1,d2);
+    inpWeekLabel.value=`${fmtBR(a)} a ${fmtBR(b)}`;
+  };
+  dtStart.addEventListener('change', syncLabel);
+  dtEnd.addEventListener('change', syncLabel);
+
+  // ===== Parser: TAB / ; / , / múltiplos espaços, com/sem cabeçalho =====
+  const detectDelimiter = (line) => {
+    if (line.includes('\t')) return '\t';
+    if (line.includes(';')) return ';';
+    if (line.includes(',')) return ',';
+    const blocks = line.trim().split(/\s{2,}/);
+    if (blocks.length >= 4) return 'spaces';
+    return 'spaces';
+  };
+  const splitRowGeneric = (row, delim) => {
+    if (delim === '\t') return row.split('\t').map(s => s.replace(/^"|"$/g,'').trim());
+    if (delim === 'spaces') return row.trim().split(/\s{2,}/).map(s => s.replace(/^"|"$/g,'').trim());
+    // CSV genérico (',' ou ';') respeitando aspas
+    const out = []; let cur = '', inQ = false;
+    for (let i = 0; i < row.length; i++) {
+      const ch = row[i];
+      if (ch === '"') {
+        if (inQ && row[i+1] === '"') { cur += '"'; i++; } else { inQ = !inQ; }
+      } else if (ch === delim && !inQ) {
+        out.push(cur.trim()); cur = '';
+      } else { cur += ch; }
+    }
+    out.push(cur.trim());
+    return out.map(s => s.replace(/^"|"$/g,''));
+  };
+  const DEFAULT_FIELDS = ["GRUPO","PLACA","POSIÇÃO SERV","ENDEREÇO","EQUIPAMENTO"];
+  const parseTable = (text) => {
+    const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
+    if (!lines.length) throw new Error('Nada para importar.');
+    const delimiter = detectDelimiter(lines[0]);
+    const firstCols = splitRowGeneric(lines[0], delimiter);
+
+    const headCand = firstCols.map(h => h.trim());
+    const placaIdxHeader = headCand.findIndex(h => norm(h) === 'PLACA');
+
+    let fields, startRow;
+    if (placaIdxHeader !== -1) { fields = headCand; startRow = 1; }
+    else { const n = Math.max(DEFAULT_FIELDS.length, firstCols.length); fields = DEFAULT_FIELDS.slice(0, n); startRow = 0; }
+
+    let placaIdx = fields.findIndex(h => norm(h) === 'PLACA');
+    if (placaIdx === -1) placaIdx = 1;
+
+    const rows = [];
+    for (let i = startRow; i < lines.length; i++) {
+      const cols = splitRowGeneric(lines[i], delimiter);
+      if (!cols.length) continue;
+      const plateRaw = cols[placaIdx] ?? cols[1] ?? '';
+      const plate = norm(plateRaw);
+      if (!plate) continue;
+      const obj = {};
+      for (let j = 0; j < fields.length; j++) obj[fields[j]] = cols[j] ?? '';
+      rows.push({ plate, obj });
+    }
+    if (!rows.length) throw new Error('Nenhuma linha válida encontrada (confira a coluna PLACA/2ª coluna).');
+    return { fields, rows };
+  };
+  // =====================================================================
+
+  // UI refs
+  const txtPaste = document.getElementById('txtPaste');
+  const headRow = document.getElementById('headRow');
+  const subHeadRow = document.getElementById('subHeadRow');
+  const body = document.getElementById('body');
+  const stats = document.getElementById('stats');
+  const inpFilter = document.getElementById('inpFilter');
+
+  const addWeek = () => {
+    try {
+      const text = txtPaste.value.trim();
+      if (!text) return alert('Cole o CSV/TSV da semana.');
+      const { fields, rows } = parseTable(text);
+
+      // índice mestre (linhas fixas)
+      const set = new Set(masterPlates);
+      rows.forEach(({plate}) => { if (!set.has(plate)) { masterPlates.push(plate); set.add(plate); } });
+
+      // dados da semana
+      const data = {}; rows.forEach(({plate, obj}) => { data[plate] = obj; });
+
+      // rótulo
+      let label = inpWeekLabel.value.trim();
+      if (!label && dtStart.value && dtEnd.value) {
+        const [y1,m1,d1] = dtStart.value.split('-').map(Number);
+        const [y2,m2,d2] = dtEnd.value.split('-').map(Number);
+        const a = new Date(y1,m1-1,d1); const b = new Date(y2,m2-1,d2);
+        label = `${fmtBR(a)} a ${fmtBR(b)}`;
+      }
+      if (!label) label = 'Semana';
+
+      weeks.push({ id: String(Date.now()), label, fields, data });
+      txtPaste.value = '';
+      render(); persist();
+    } catch (err) {
+      console.error(err);
+      alert(err.message || 'Falha ao ler os dados colados.');
+    }
+  };
+  document.getElementById('btnAddWeek').addEventListener('click', addWeek);
+
+  const removeWeek = (id) => { weeks = weeks.filter(w => w.id !== id); render(); persist(); };
+
+  // ===== Exportar APENAS UMA SEMANA =====
+  function exportWeekCSV(weekId) {
+    const wk = weeks.find(w => w.id === weekId);
+    if (!wk) return alert('Semana não encontrada.');
+    const head = wk.fields.slice();
+    const rows = [head];
+    masterPlates.forEach(plate => {
+      const has = !!wk.data[plate];
+      const row = wk.fields.map(f => has ? (wk.data[plate][f] ?? '') : '');
+      rows.push(row);
+    });
+    const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const safe = wk.label.replace(/[\\/:*?"<>|]+/g,'_');
+    a.download = `semana_${safe}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+  function exportWeekXLS(weekId) {
+    const wk = weeks.find(w => w.id === weekId);
+    if (!wk) return alert('Semana não encontrada.');
+    let html = '<table><thead><tr>';
+    wk.fields.forEach(f => html += `<th>${f}</th>`);
+    html += '</tr></thead><tbody>';
+    masterPlates.forEach(plate => {
+      html += '<tr>';
+      const has = !!wk.data[plate];
+      wk.fields.forEach(f => {
+        const val = has ? (wk.data[plate][f] ?? '') : '';
+        html += `<td>${val ? String(val).replace(/</g,'&lt;') : ''}</td>`;
+      });
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+    const blob = new Blob([`\uFEFF<html><head><meta charset="UTF-8"></head><body>${html}</body></html>`],
+                          { type: 'application/vnd.ms-excel' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const safe = wk.label.replace(/[\\/:*?"<>|]+/g,'_');
+    a.href = url;
+    a.download = `semana_${safe}.xls`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+  // ======================================
+
+  // export CSV (todas) — não força PLACA quando ausente
+  const exportCSV = () => {
+    if (!weeks.length) return alert('Nada para exportar.');
+    const head=[]; weeks.forEach(w=> w.fields.forEach(f=> head.push(`${w.label} – ${f}`)));
+    const rows=[head];
+    masterPlates.forEach(plate=>{
+      const row=[];
+      weeks.forEach(w=>{
+        w.fields.forEach(f=>{
+          const has = !!w.data[plate];
+          const val = has ? (w.data[plate][f] ?? '') : '';
+          row.push(String(val));
+        });
+      });
+      rows.push(row);
+    });
+    const csv = rows.map(r=> r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const blob = new Blob(["\uFEFF"+csv], { type:'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href=url; a.download='historico_placas_completo.csv'; a.click(); URL.revokeObjectURL(url);
+  };
+  document.getElementById('btnExportCsv').addEventListener('click', exportCSV);
+
+  // export Excel (todas)
+  const exportXLS = ()=>{
+    if (!weeks.length) return alert('Nada para exportar.');
+    let html='<table><thead><tr>';
+    weeks.forEach(w=>{ html+=`<th colspan="${w.fields.length+1}">${w.label}</th>`; }); // +1 do gutter
+    html+='</tr><tr>';
+    weeks.forEach(w=>{ 
+      w.fields.forEach(f=> html+=`<th>${f}</th>`); 
+      html+='<th></th>'; // gutter
+    });
+    html+='</tr></thead><tbody>';
+    masterPlates.forEach(plate=>{
+      html+='<tr>';
+      weeks.forEach(w=>{
+        w.fields.forEach(f=>{
+          const has = !!w.data[plate];
+          const val = has ? (w.data[plate][f] ?? '') : '';
+          html+=`<td>${val ? String(val).replace(/</g,'&lt;') : ''}</td>`;
+        });
+        html+='<td></td>'; // gutter
+      });
+      html+='</tr>';
+    });
+    html+='</tbody></table>';
+    const blob = new Blob([`\uFEFF<html><head><meta charset="UTF-8"></head><body>${html}</body></html>`], { type:'application/vnd.ms-excel' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href=url; a.download='historico_placas.xls'; a.click(); URL.revokeObjectURL(url);
+  };
+  document.getElementById('btnExportXls').addEventListener('click', exportXLS);
+
+  document.getElementById('btnReset').addEventListener('click', ()=>{
+    if (!confirm('Apagar toda a base?')) return;
+    masterPlates=[]; weeks=[]; render(); persist();
+  });
+
+  const inpFilterEl = document.getElementById('inpFilter');
+  inpFilterEl.addEventListener('input', e=>{ filter = norm(e.target.value); render(); });
+
+  // ---- RENDER com separação por semana, e sem auto-preencher PLACA ----
+  const render = ()=>{
+    headRow.innerHTML=''; 
+    subHeadRow.innerHTML='';
+    body.innerHTML='';
+
+    // cabeçalhos
+    weeks.forEach((w, wi)=>{
+      const th=document.createElement('th');
+      th.colSpan = w.fields.length + 1; // +1 por causa do gutter
+      const wrap=document.createElement('div'); wrap.className='weekhead';
+
+      const input=document.createElement('input'); input.type='text'; input.value=w.label;
+      input.addEventListener('input', e=>{ w.label=e.target.value; persist(); });
+
+      // botões CSV/XLS por semana
+      const csvBtn = document.createElement('button');
+      csvBtn.className = 'btn'; csvBtn.textContent = 'CSV';
+      csvBtn.title = 'Exportar só esta semana (CSV)';
+      csvBtn.addEventListener('click', () => exportWeekCSV(w.id));
+
+      const xlsBtn = document.createElement('button');
+      xlsBtn.className = 'btn'; xlsBtn.textContent = 'XLS';
+      xlsBtn.title = 'Exportar só esta semana (Excel)';
+      xlsBtn.addEventListener('click', () => exportWeekXLS(w.id));
+
+      const btn=document.createElement('button'); btn.className='btn'; btn.textContent='×'; btn.title='Remover semana';
+      btn.addEventListener('click',()=> removeWeek(w.id));
+
+      wrap.append(input, csvBtn, xlsBtn, btn);
+      th.appendChild(wrap);
+      th.classList.add('sepL');
+      headRow.appendChild(th);
+
+      w.fields.forEach((f, j)=>{
+        const th2=document.createElement('th'); 
+        th2.textContent=f; 
+        th2.classList.add('wk-sub', `wk-${wi}`);
+        if (j===0) th2.classList.add('sepL');
+
+        const key = f.toUpperCase();
+        if (key.includes('GRUPO'))      th2.classList.add('col-grupo');
+        else if (key === 'PLACA')       th2.classList.add('col-placa');
+        else if (key.includes('POSI'))  th2.classList.add('col-posicao');
+        else if (key.includes('END'))   th2.classList.add('col-endereco');
+        else if (key.includes('EQUI'))  th2.classList.add('col-equip');
+
+        subHeadRow.appendChild(th2);
+      });
+      const gutterTh = document.createElement('th'); 
+      gutterTh.className = 'gutter';
+      subHeadRow.appendChild(gutterTh);
+    });
+
+    // corpo
+    const plates = filter ? masterPlates.filter(p=>p.includes(filter)) : masterPlates.slice();
+    plates.forEach(plate=>{
+      const tr=document.createElement('tr');
+      weeks.forEach((w, wi)=>{
+        w.fields.forEach((f, j)=>{
+          const td=document.createElement('td'); 
+          td.classList.add('wk', `wk-${wi}`);
+          if (j===0) td.classList.add('sepL');
+
+          const key = f.toUpperCase();
+          if (key.includes('GRUPO'))      td.classList.add('col-grupo');
+          else if (key === 'PLACA')       td.classList.add('col-placa');
+          else if (key.includes('POSI'))  td.classList.add('col-posicao');
+          else if (key.includes('END'))   td.classList.add('col-endereco');
+          else if (key.includes('EQUI'))  td.classList.add('col-equip');
+
+          const has = !!w.data[plate];                     // apareceu nesta semana?
+          const val = has ? (w.data[plate][f] ?? '') : ''; // se não, fica vazio
+          td.textContent = val;
+          tr.appendChild(td);
+        });
+        const gutterTd = document.createElement('td'); 
+        gutterTd.className = 'gutter';
+        tr.appendChild(gutterTd);
+      });
+      body.appendChild(tr);
+    });
+
+    stats.textContent = `Total de placas: ${masterPlates.length} • Semanas: ${weeks.length}`;
+  };
+
+  // init
+  setDefaultDates();
+  render();
+})();
+</script>
+</body>
+</html>
