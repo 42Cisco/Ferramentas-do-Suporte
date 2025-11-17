@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Conversor de Itens → JSON (Formulário)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    :root {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #020617;
+      color: #f9fafb;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: radial-gradient(circle at top, #111827 0, #020617 45%, #020617 100%);
+    }
+
+    .outer-wrapper {
+      max-width: 1200px;
+      width: 100%;
+    }
+
+    .container {
+      width: 100%;
+      background: linear-gradient(135deg, rgba(15,23,42,0.96), rgba(2,6,23,0.98));
+      border-radius: 24px;
+      padding: 24px 26px 20px;
+      box-shadow:
+        0 24px 70px rgba(15,23,42,0.85),
+        0 0 0 1px rgba(148, 163, 184, 0.18);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+    }
+
+    .header {
+      margin-bottom: 12px;
+    }
+
+    .title {
+      font-size: 1.7rem;
+      font-weight: 650;
+      letter-spacing: .04em;
+      margin-bottom: 4px;
+    }
+
+    .title span {
+      background: linear-gradient(135deg, #38bdf8, #22c55e);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .subtitle {
+      font-size: .9rem;
+      color: #9ca3af;
+    }
+
+    .controls {
+      margin: 10px 0 4px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.85rem;
+      color: #e5e7eb;
+    }
+
+    .controls label {
+      font-weight: 500;
+    }
+
+    .controls select {
+      background: #020617;
+      color: #e5e7eb;
+      border-radius: 999px;
+      border: 1px solid #4b5563;
+      padding: 4px 10px;
+      font-size: 0.85rem;
+      outline: none;
+    }
+
+    .controls select:focus {
+      border-color: #38bdf8;
+    }
+
+    .controls .hint {
+      color: #9ca3af;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      margin-top: 10px;
+    }
+
+    @media (max-width: 900px) {
+      body {
+        padding: 14px;
+      }
+      .container {
+        padding: 18px 16px 16px;
+        border-radius: 18px;
+      }
+      .grid {
+        grid-template-columns: 1fr;
+      }
+      .controls {
+        align-items: flex-start;
+      }
+    }
+
+    .panel {
+      display: flex;
+      flex-direction: column;
+      background: radial-gradient(circle at top left, #020617 0, #020617 35%, #020617 100%);
+      border-radius: 18px;
+      padding: 14px;
+      border: 1px solid rgba(55, 65, 81, 0.95);
+      box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.9);
+    }
+
+    .panel h2 {
+      margin: 0 0 10px;
+      font-size: .95rem;
+      font-weight: 500;
+      color: #e5e7eb;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 250px;
+      flex: 1;
+      resize: vertical;
+      border-radius: 12px;
+      border: 1px solid #1f2937;
+      background: #020617;
+      color: #e5e7eb;
+      padding: 12px 11px;
+      font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: .85rem;
+      outline: none;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+    }
+
+    textarea::placeholder {
+      color: #4b5563;
+    }
+
+    textarea:focus {
+      border-color: #38bdf8;
+      box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.6);
+      background: #020617;
+    }
+
+    .buttons {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      border-radius: 999px;
+      border: none;
+      padding: 8px 18px;
+      font-size: .9rem;
+      cursor: pointer;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.15s ease;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      color: white;
+      box-shadow: 0 10px 30px rgba(22, 163, 74, 0.45);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 14px 34px rgba(22, 163, 74, 0.55);
+    }
+
+    .btn-secondary {
+      background: #020617;
+      color: #e5e7eb;
+      border: 1px solid #4b5563;
+    }
+
+    .btn-secondary:hover {
+      background: #020617;
+      border-color: #9ca3af;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 18px;
+      right: 18px;
+      background: #020617;
+      color: #e5e7eb;
+      padding: 8px 14px;
+      border-radius: 999px;
+      border: 1px solid #38bdf8;
+      font-size: .8rem;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(8px);
+      transition: opacity .15s ease, transform .15s ease;
+    }
+
+    .toast.show {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+  </style>
+</head>
+<body>
+  <div class="outer-wrapper">
+    <div class="container">
+      <div class="header">
+        <div class="title">Conversor de <span>Itens → JSON</span></div>
+        <div class="subtitle">Cole ou digite os itens à esquerda e gere o bloco de <code>options</code> pronto para uso.</div>
+      </div>
+
+      <div class="controls">
+        <label for="extraType">Campo extra (opcional):</label>
+        <select id="extraType">
+          <option value="none">Nenhum</option>
+          <option value="machine_status">machine_status</option>
+          <option value="status_id">status_id</option>
+        </select>
+        <span class="hint">Se usar, escreva o número no final da linha: <code>01-ITEM / 30</code></span>
+      </div>
+
+      <div class="grid">
+        <div class="panel">
+          <h2>Itens de entrada</h2>
+          <textarea id="input" placeholder="01-DESLOCAMENTO PARA ABASTECIMENTO / 25&#10;02-ABASTECIMENTO IMEDIATO&#10;03-OUTRO STATUS / 10"></textarea>
+        </div>
+
+        <div class="panel">
+          <h2>Saída JSON</h2>
+          <textarea id="output" readonly placeholder="// Clique em &quot;Gerar JSON&quot; para ver o resultado"></textarea>
+        </div>
+      </div>
+
+      <div class="buttons">
+        <button class="btn-secondary" id="clearBtn">Limpar</button>
+        <button class="btn-secondary" id="copyBtn">Copiar saída</button>
+        <button class="btn-primary" id="generateBtn">Gerar JSON</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">Copiado!</div>
+
+  <script>
+    const input = document.getElementById("input");
+    const output = document.getElementById("output");
+    const generateBtn = document.getElementById("generateBtn");
+    const copyBtn = document.getElementById("copyBtn");
+    const clearBtn = document.getElementById("clearBtn");
+    const toast = document.getElementById("toast");
+    const extraTypeSelect = document.getElementById("extraType");
+
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add("show");
+      setTimeout(() => {
+        toast.classList.remove("show");
+      }, 1800);
+    }
+
+    function gerarJSON() {
+      const extraType = extraTypeSelect.value; // none, machine_status, status_id
+
+      const linhasBrutas = input.value
+        .split(/\r?\n/)
+        .map(l => l.trim())
+        .filter(Boolean);
+
+      if (!linhasBrutas.length) {
+        output.value = "";
+        return;
+      }
+
+      const blocos = linhasBrutas.map((linha, idx) => {
+        let raw = linha;
+        let extraValue = null;
+
+        // Só procura "/ número" se tiver tipo extra selecionado
+        if (extraType !== "none") {
+          const match = raw.match(/\/\s*(\d+)\s*$/);
+          if (match) {
+            extraValue = Number(match[1]);
+            raw = raw.slice(0, match.index).trim();
+          }
+        }
+
+        const texto = raw.toUpperCase();
+        const id = idx + 1;
+
+        const campos = [
+          `    "id": ${id}`,
+          `    "value": ${JSON.stringify(texto)}`,
+          `    "selected": false`
+        ];
+
+        if (extraType !== "none" && extraValue !== null) {
+          campos.push(`    "${extraType}": ${extraValue}`);
+        }
+
+        return "  {\n" + campos.join(",\n") + "\n  }";
+      });
+
+      output.value = "[\n" + blocos.join(",\n") + "\n]";
+    }
+
+    function copiarSaida() {
+      if (!output.value.trim()) {
+        showToast("Nada para copiar.");
+        return;
+      }
+      navigator.clipboard.writeText(output.value)
+        .then(() => showToast("Copiado para a área de transferência!"))
+        .catch(() => showToast("Não foi possível copiar."));
+    }
+
+    function limpar() {
+      input.value = "";
+      output.value = "";
+      input.focus();
+    }
+
+    generateBtn.addEventListener("click", gerarJSON);
+    copyBtn.addEventListener("click", copiarSaida);
+    clearBtn.addEventListener("click", limpar);
+
+    // Atalho: Ctrl+Enter / Cmd+Enter para gerar
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+        gerarJSON();
+      }
+    });
+  </script>
+</body>
+</html>
