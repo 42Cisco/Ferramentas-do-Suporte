@@ -36,7 +36,12 @@
   table{width:100%;border-collapse:separate;border-spacing:0;font-size:14px}
   thead th{position:sticky;top:0;background:var(--panel-2);z-index:2;text-align:left;padding:8px 12px;border-bottom:1px solid var(--border)}
   thead .sub th{top:36px;background:#fff}
-  tbody td{padding:8px 12px;border-top:1px solid #f1f5f9}
+  tbody td {
+  padding:8px 12px;
+  border-top:1px solid #f1f5f9;
+  vertical-align: top !important; /* ⬅ isso corrige o texto afundado */
+  line-height: 1.2; /* opcional: deixa o texto mais equilibrado */
+}
 
   .col-grupo      { min-width: 160px; }
   .col-placa      { min-width: 100px; text-align:center; }
@@ -441,6 +446,62 @@ VEÍCULOS BALCÃO	JAM5J05	23/06/2024 03:10	Rua Pastor Heinrich...	GV50
 
   const removeWeek = (id)=>{ weeks = weeks.filter(w=>w.id!==id); render(); persist(); };
 
+  // === Copiar apenas uma semana para área de transferência ===
+  function copyWeekToClipboard(weekId){
+    const wk = weeks.find(w => w.id === weekId);
+    if (!wk) return alert('Semana não encontrada.');
+
+    const linhas = [];
+
+    // Cabeçalho
+    linhas.push(wk.fields.join('\t'));
+
+    // Linhas
+    masterPlates.forEach(key => {
+      const has = !!wk.data[key];
+      const row = wk.fields.map(f => {
+        if (!has) return '';
+        let v = wk.data[key][f] ?? '';
+        if (f.toUpperCase() === 'PLACA') v = keyToPlate(key);
+        return String(v);
+      });
+      linhas.push(row.join('\t'));
+    });
+
+    const texto = linhas.join('\n');
+
+    // API moderna
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(texto)
+        .then(() => alert('Semana copiada para a área de transferência.'))
+        .catch(err => {
+          console.error(err);
+          fallbackCopyText(texto);
+        });
+    } else {
+      // fallback
+      fallbackCopyText(texto);
+    }
+  }
+
+  function fallbackCopyText(texto){
+    const ta = document.createElement('textarea');
+    ta.value = texto;
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    try {
+      document.execCommand('copy');
+      alert('Semana copiada para a área de transferência.');
+    } catch (e) {
+      alert('Não foi possível copiar automaticamente. Selecione e copie manualmente.');
+    }
+    document.body.removeChild(ta);
+  }
+
+
   // exportações (com fallback HTML)
   function downloadHTML(filename, html){
     const blob = new Blob(['\uFEFF<html><head><meta charset="UTF-8"></head><body>'+html+'</body></html>'],
@@ -515,32 +576,57 @@ VEÍCULOS BALCÃO	JAM5J05	23/06/2024 03:10	Rua Pastor Heinrich...	GV50
     masterPlates=[]; weeks=[]; displayName={}; render(); persist();
   });
 
-  document.getElementById('btnAddWeek').addEventListener('click', addWeek);
-
   inpFilter.addEventListener('input', e=>{ filter = norm(e.target.value); render(); });
 
   // renderização da grade
   function render(){
     headRow.innerHTML=''; subHeadRow.innerHTML=''; body.innerHTML='';
     weeks.forEach((w, wi)=>{
-      const th=document.createElement('th'); th.colSpan=w.fields.length+1;
-      const wrap=document.createElement('div'); wrap.className='weekhead';
-      const input=document.createElement('input'); input.type='text'; input.value=w.label;
-      input.addEventListener('input', e=>{ w.label=e.target.value; persist(); });
+      const th = document.createElement('th');
+      th.colSpan = w.fields.length + 1;
+      const wrap = document.createElement('div');
+      wrap.className = 'weekhead';
 
-      const csvBtn=document.createElement('button'); csvBtn.className='btn'; csvBtn.textContent='CSV';
+      // Label editável
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = w.label;
+      input.addEventListener('input', e => {
+        w.label = e.target.value;
+        persist();
+      });
+
+      // Botões
+      const csvBtn=document.createElement('button');
+      csvBtn.className='btn';
+      csvBtn.textContent='CSV';
       csvBtn.title='Exportar só esta semana (CSV)';
       csvBtn.addEventListener('click', ()=> exportWeekCSV(w.id));
 
-      const xlsBtn=document.createElement('button'); xlsBtn.className='btn'; xlsBtn.textContent='XLS';
+      const xlsBtn=document.createElement('button');
+      xlsBtn.className='btn';
+      xlsBtn.textContent='XLS';
       xlsBtn.title='Exportar só esta semana (Excel)';
       xlsBtn.addEventListener('click', ()=> exportWeekXLS(w.id));
 
-      const rm=document.createElement('button'); rm.className='btn'; rm.textContent='×'; rm.title='Remover semana';
+      const copyBtn=document.createElement('button');
+      copyBtn.className='btn';
+      copyBtn.textContent='Copiar';
+      copyBtn.title='Copiar só esta semana para a área de transferência';
+      copyBtn.addEventListener('click', ()=> copyWeekToClipboard(w.id));
+
+      const rm=document.createElement('button');
+      rm.className='btn';
+      rm.textContent='×';
+      rm.title='Remover semana';
       rm.addEventListener('click', ()=> removeWeek(w.id));
 
-      wrap.append(input, csvBtn, xlsBtn, rm); th.appendChild(wrap);
-      th.classList.add('sepL'); headRow.appendChild(th);
+      // Adiciona botões em ordem
+      wrap.append(input, csvBtn, xlsBtn, copyBtn, rm);
+      th.appendChild(wrap);
+
+      // AGORA SIM adiciona na linha de cabeçalhos
+      headRow.appendChild(th);
 
       w.fields.forEach((f,j)=>{
         const th2=document.createElement('th'); th2.textContent=f; th2.classList.add('wk-sub',`wk-${wi}`); if(j===0) th2.classList.add('sepL');
