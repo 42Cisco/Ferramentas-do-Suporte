@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Conversor JSON ⇄ XML (+ INTELIGENTE)</title>
+  <title>Conversor JSON ⇄ XML </title>
   <style>
     :root { --bg:#0f172a; --panel:#111827; --ink:#e5e7eb; --muted:#94a3b8; }
     * { box-sizing: border-box; }
@@ -589,6 +589,41 @@ const SELECT_TYPES = new Set([
   'operation-type' // tratado como select e normalizado p/ single-select
 ]);
 
+// Normaliza listas em child_visibility e dynamic_option (vírgula → ponto-e-vírgula)
+function normalizeJsonDynamicOptions(jsonStr){
+  let obj;
+  try {
+    obj = JSON.parse(String(jsonStr || '').trim());
+  } catch (e) {
+    throw new Error('JSON inválido: ' + e.message);
+  }
+
+  try {
+    const root = getFormRoot(obj); // já existe no seu código
+    const fields = Array.isArray(root.fields) ? root.fields : [];
+
+    fields.forEach(f => {
+      if (!Array.isArray(f.options)) return;
+
+      f.options.forEach(op => {
+        if (!op || typeof op !== 'object') return;
+
+        ['child_visibility', 'dynamic_option'].forEach(key => {
+          if (op[key] != null && op[key] !== '') {
+            // usa a mesma regra do INTELIGENTE: vírgula → ';', junta arrays etc.
+            op[key] = toInteligenteList(op[key]);
+          }
+        });
+      });
+    });
+
+  } catch (e) {
+    // se não tiver estrutura de form/fields, só segue com o JSON como está
+  }
+
+  return prettyJson(obj);
+}
+
 // Normaliza listas para o padrão "INTELIGENTE":
 // - troca vírgula por ponto-e-vírgula em strings
 // - junta arrays com ';'
@@ -718,7 +753,7 @@ function updateUi(){
   const m = modeSel.value;
   const prevOut = outSel.value;
 
-  // 0) Reabilitar todas as opções de saída antes de aplicar regras
+  // 0) Reabilitar todas as opções de saída
   [...outSel.options].forEach(opt => { opt.disabled = false; });
 
   // 1) Remover a opção SQL (caso exista) para recriar quando preciso
@@ -734,35 +769,27 @@ function updateUi(){
     opt.textContent = 'SQL';
     outSel.appendChild(opt);
 
-    // Desabilita saída JSON (não faz sentido JSON→JSON aqui)
-    [...outSel.options].forEach(opt => {
-      if (opt.value === 'JSON') opt.disabled = true;
-    });
-
-    // Ajusta valor de saída se o anterior não for válido
-    if (!['XML','INTELIGENTE','SQL'].includes(prevOut)) {
+    // Agora NÃO desabilitamos mais JSON.
+    // Só garantimos que o valor atual é válido:
+    if (!['XML','JSON','INTELIGENTE','SQL'].includes(prevOut)) {
       outSel.value = 'XML';
     } else {
       outSel.value = prevOut;
     }
 
   } else if (m === 'SQL') {
-    // Entrada SQL: só JSON habilitado
+    // Entrada SQL: só JSON habilitado (ainda não existe conversão para outros)
     outSel.value = 'JSON';
     [...outSel.options].forEach(opt => {
       opt.disabled = (opt.value !== 'JSON');
     });
 
   } else if (m === 'XML') {
-    // Entrada XML: permitir JSON e INTELIGENTE, mas não XML
-    [...outSel.options].forEach(opt => {
-      if (opt.value === 'XML') opt.disabled = true;
-    });
-
-    if (['JSON','INTELIGENTE'].includes(prevOut)) {
-      outSel.value = prevOut;
-    } else {
+    // Entrada XML: pode sair como XML, JSON ou INTELIGENTE
+    if (!['XML','JSON','INTELIGENTE'].includes(prevOut)) {
       outSel.value = 'JSON';
+    } else {
+      outSel.value = prevOut;
     }
   }
 
@@ -780,6 +807,7 @@ function updateUi(){
   msg('');
 }
 
+
     $('#btnConvert').addEventListener('click', ()=>{
   try{
     const m = modeSel.value; 
@@ -788,7 +816,7 @@ function updateUi(){
     let out='';
 
     if (m==='JSON' && o==='XML') out = jsonToXml(input);
-    else if (m==='JSON' && o==='JSON') out = prettyJson(input);
+    else if (m==='JSON' && o==='JSON') out = normalizeJsonDynamicOptions(input);
     else if (m==='JSON' && o==='INTELIGENTE') out = jsonToInt(input);
     else if (m==='JSON' && o==='SQL') out = jsonToSql(input);
 
