@@ -302,6 +302,10 @@
         let raw = linha;
         let extraValue = null;
 
+        // Remove espaços antes e depois do hífen
+        raw = raw.replace(/\s*-\s*/g, "-");
+
+
         // Só procura "/ número" se tiver tipo extra selecionado
         if (extraType !== "none") {
           const match = raw.match(/\/\s*(\d+)\s*$/);
