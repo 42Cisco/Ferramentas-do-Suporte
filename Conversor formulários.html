@@ -69,12 +69,6 @@
     <div id="msg" class="muted"></div>
 
     <footer>
-      Regras de mapeamento (resumo):
-      <ul>
-        <li><strong>JSON → XML</strong>: preserva textos; <code>type: "int"</code> vira <code>&lt;int-numpad-type ...&gt;&lt;/int&gt;</code>; <code>single-select-type</code> vira <code>&lt;single-select-type&gt;&lt;option ...&gt;valor&lt;/option&gt;</code>, mantendo <code>id</code>/<code>selected</code>/<code>machine_status</code>/<code>child_visibility</code>. Metadados do JSON sobem para o &lt;form&gt; quando existirem.</li>
-        <li><strong>XML → JSON</strong>: reconstrói <code>{ type: "addForm", data: { form_id, version, title, fields: [...] } }</code>; aceita fechamentos como <code>&lt;int-numpad-type&gt;&lt;/int&gt;</code> e <code>&lt;keyboard-type&gt;&lt;/keyboard&gt;</code>.</li>
-        <li><strong>JSON/XML → INTELIGENTE</strong>: produz <em>array</em> de campos. Campos: <code>{ id, title, placeholder, type, required, [min], [max], [options] }</code>. Selects: <code>options</code> vira lista de tuplas <code>[id, label, selected(0/1), machine_status?, child_visibility?]</code>. Sem metadados de formulário.</li>
-      </ul>
     </footer>
   </main>
 
@@ -367,25 +361,27 @@ function jsonToXml(jsonStr){
   type === 'operation-type' // suporta como select
 ){
   // usa <single-select-type> como contêiner padrão
-  xml += `\n    <single-select-type>`;
-  const options = Array.isArray(f.options) ? f.options : [];
+const isMulti =
+  type === 'multi-select-type' || type === 'multi-select';
 
-  for (const o of options){
-    // --- NORMALIZAÇÃO: sempre ignorar metadados específicos de item ---
-    // Permitidos: id (opcional), selected (opcional), texto (obrigatório)
-    if (Array.isArray(o)){
-      // tupla INTELIGENTE: [id, label, selected(0/1), ...extras_ignorados]
-      const [oid, label, selected] = o;
-      const selAttr = selected ? 'true' : 'false';
-      xml += `\n      <option${attr('id', oid)}${attr('selected', selected ? 'true':'false')}>${escapeXml(label ?? '')}</option>`;
-    } else {
-      // objeto padrão: usar apenas id, selected e value/label como texto
-      const label = o.value ?? o.label ?? '';
-      const selected = !!o.selected;
-      xml += `\n      <option${attr('id', o.id)}${attr('selected', selected ? 'true':'false')}>${escapeXml(label)}</option>`;
-    }
+const containerTag = isMulti ? 'multi-select-type' : 'single-select-type';
+
+xml += `\n    <${containerTag}>`;
+
+const options = Array.isArray(f.options) ? f.options : [];
+for (const o of options) {
+  if (Array.isArray(o)) {
+    const [oid, label, selected] = o;
+    xml += `\n      <option${attr('id', oid)}${attr('selected', selected ? 'true':'false')}>${escapeXml(label ?? '')}</option>`;
+  } else {
+    const label = o.value ?? o.label ?? '';
+    const selected = !!o.selected;
+    xml += `\n      <option${attr('id', o.id)}${attr('selected', selected ? 'true':'false')}>${escapeXml(label)}</option>`;
   }
-  xml += `\n    </single-select-type>`;
+}
+
+xml += `\n    </${containerTag}>`;
+
 
     } else {
       const maxTextLen = Number.isFinite(f.max) ? f.max : undefined;
