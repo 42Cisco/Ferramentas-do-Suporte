@@ -702,6 +702,11 @@ function mapFieldToInt(fRaw){
     out.fleet = !!f.fleet; // força boolean
   }
 
+    // autofill → deve ir para INTELIGENTE se existir
+  if (f.autofill !== undefined && f.autofill !== null){
+    out.autofill = !!f.autofill; // força boolean
+  }
+
 // selects → tuplas
   const isSelect = SELECT_TYPES.has(typeIn) || SELECT_TYPES.has(normType);
   if (isSelect && Array.isArray(f.options)){
@@ -932,3 +937,4 @@ function updateUi(){
   </script>
 </body>
 </html>
+
