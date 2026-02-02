@@ -1,940 +1,774 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Conversor JSON ⇄ XML (+ INTELIGENTE)</title>
-  <style>
-    :root { --bg:#0f172a; --panel:#111827; --ink:#e5e7eb; --muted:#94a3b8; }
-    * { box-sizing: border-box; }
-    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Inter, "Helvetica Neue", Arial, Noto Sans, "Apple Color Emoji", "Segoe UI Emoji"; background: var(--bg); color: var(--ink); }
-    header { padding: 18px 16px; border-bottom: 1px solid #1f2937; display:flex; align-items:center; justify-content:space-between; }
-    header h1 { margin:0; font-size: 18px; font-weight: 700; letter-spacing: .2px; }
-    main { padding: 16px; max-width: 1100px; margin: 0 auto; }
-    .bar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom: 10px; }
-    label { font-size:12px; color: var(--muted); }
-    select, button { padding: 8px 12px; border-radius: 10px; background: #0b1220; color: var(--ink); border:1px solid #1f2937; cursor:pointer; font-size: 12px; }
-    button:hover, select:hover { border-color:#334155; }
-    .accent { border-color: #155e75; background: #04242a; color: #a5f3fc; }
-    .grid { display:grid; gap:12px; grid-template-columns: 1fr 1fr; }
-    .card { background: var(--panel); border:1px solid #1f2937; border-radius: 12px; overflow:hidden; display:flex; flex-direction:column; min-height: 360px; }
-    .card header { background: transparent; border:0; padding: 12px 14px; }
-    .card header h2 { margin:0; font-size:14px; color: var(--muted); font-weight:600; }
-    textarea { width:100%; flex:1; padding:12px 14px; background: transparent; color: var(--ink); border:0; outline: none; font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; resize:vertical; min-height: 340px; }
-    pre { margin:0; padding:12px 14px; white-space: pre-wrap; word-break: break-word; font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace; }
-    .toolbar { display:flex; gap:8px; flex-wrap:wrap; padding: 8px 12px 12px; }
-    .muted { color:var(--muted); font-size:12px; margin-top:8px; }
-    .error { color:#fecaca; background:#7f1d1d; border:1px solid #ef4444; padding:8px 10px; border-radius:8px; }
-    footer { margin-top: 10px; color: var(--muted); font-size: 12px; }
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Organizador de Placas – Multiempresa (Abas)</title>
+<style>
+  :root {
+    --bg:#f8fafc; --panel:#fff; --muted:#64748b; --border:#e2e8f0; --panel-2:#f1f5f9;
+    --accent:#059669; --accent-2:#047857; --danger:#e11d48; --danger-2:#be123c;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:#0f172a;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+  .wrap{max-width:1280px;margin:24px auto;padding:0 16px}
+  h1{font-size:24px;margin:0 0 4px}
+  .muted{color:var(--muted);font-size:13px}
+  .row{display:grid;gap:16px;grid-template-columns:1fr}
+  @media (min-width:900px){.row{grid-template-columns:1fr 1fr}}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:16px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  textarea,input[type="text"],input[type="file"],input[type="date"]{width:100%;border:1px solid var(--border);border-radius:12px;padding:10px 12px;background:#fff;outline:none}
+  textarea:focus,input[type="text"]:focus,input[type="date"]:focus{box-shadow:0 0 0 3px #cbd5e1}
+  .btn{appearance:none;border:0;border-radius:999px;padding:10px 14px;font-size:14px;background:#fff;border:1px solid var(--border);box-shadow:0 1px 2px rgba(0,0,0,.06);cursor:pointer}
+  .btn:hover{background:#f8fafc}
+  .btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .btn.primary:hover{background:var(--accent-2)}
+  .btn.danger{background:var(--danger);color:#fff;border-color:var(--danger)}
+  .btn.danger:hover{background:var(--danger-2)}
+  .toolbar{display:flex;flex-wrap:wrap;gap:8px}
+
+  /* abas */
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+  .tab{padding:8px 12px;border:1px solid var(--border);background:#fff;border-radius:999px;cursor:pointer}
+  .tab.active{background:#111827;color:#fff;border-color:#111827}
+
+  .table-wrap{overflow:auto;border:1px solid var(--border);border-radius:16px;background:#fff}
+  table{width:100%;border-collapse:separate;border-spacing:0;font-size:14px}
+  thead th{position:sticky;top:0;background:var(--panel-2);z-index:2;text-align:left;padding:8px 12px;border-bottom:1px solid var(--border)}
+  thead .sub th{top:36px;background:#fff}
+  tbody td {
+  padding:8px 12px;
+  border-top:1px solid #f1f5f9;
+  vertical-align: top !important; /* ⬅ isso corrige o texto afundado */
+  line-height: 1.2; /* opcional: deixa o texto mais equilibrado */
+}
+
+  .col-grupo      { min-width: 160px; }
+  .col-placa      { min-width: 100px; text-align:center; }
+  .col-posicao    { min-width: 140px; text-align:center; }
+  .col-endereco   { min-width: 420px; white-space: normal; line-height: 1.1; }
+  .col-equip      { min-width: 100px; text-align:center; }
+  .col-area       { min-width: 110px; text-align:center; }
+
+  .sepL { border-left: 3px solid #94a3b8 !important; }
+  .gutter { width: 12px; min-width: 12px; background: #e2e8f0; padding: 0; }
+
+  th.wk-sub.wk-0, td.wk.wk-0 { background: #f8fafc; }
+  th.wk-sub.wk-1, td.wk.wk-1 { background: #f1f5ff; }
+
+  .weekhead{display:flex;align-items:center;gap:6px}
+  .weekhead input[type="text"]{width:220px;padding:6px 8px;font-size:12px}
+  .weekhead .btn{padding:4px 8px;font-size:12px}
+</style>
 </head>
 <body>
-  <header>
-    <h1>Conversor JSON ⇄ XML (+ INTELIGENTE)</h1>
-  </header>
-  <main>
-    <div class="bar">
-      <label for="mode">Entrada:</label>
-      <select id="mode" aria-label="Formato de entrada">
-        <option value="JSON">JSON</option>
-        <option value="XML">XML</option>
-        <option value="SQL">SQL</option>
-      </select>
+  <div class="wrap">
 
-      <label for="outMode">Saída:</label>
-      <select id="outMode" aria-label="Formato de saída">
-        <option value="XML">XML</option>
-        <option value="JSON">JSON</option>
-        <option value="INTELIGENTE">INTELIGENTE</option>
-      </select>
-
-      <button id="btnConvert" class="accent">Converter →</button>
-      <button id="btnFormat">Formatar entrada</button>
-      <button id="btnCopy">Copiar saída</button>
-      <button id="btnDownload">Baixar saída</button>
-      <button id="btnClear" aria-label="Limpar entrada e saída">Limpar</button>
+    <!-- Abas -->
+    <div class="tabs" id="tabs"></div>
+    <div class="toolbar" style="margin-bottom:12px;">
+      <button id="btnAddCompany" class="btn">+ Nova empresa</button>
+      <button id="btnRenameCompany" class="btn">Renomear</button>
+      <button id="btnDeleteCompany" class="btn danger">Excluir empresa</button>
     </div>
 
-    <div class="grid">
-      <section class="card">
-        <header><h2 id="inTitle">Entrada (JSON)</h2></header>
-        <textarea id="inBox" placeholder="Cole aqui seu JSON ou XML..."></textarea>
-      </section>
-      <section class="card">
-        <header><h2 id="outTitle">Saída (XML)</h2></header>
-        <pre id="outBox"></pre>
-      </section>
-    </div>
+    <header class="card" style="display:flex;align-items:end;justify-content:space-between;gap:12px;">
+      <div>
+        <h1>Organizador de Placas <span id="companyTitle" class="muted"></span></h1>
+        <div class="muted">Cole o CSV/TSV da semana (ex.: <code>GRUPO,PLACA,POSIÇÃO SERV,ENDEREÇO,EQUIPAMENTO[,ÁREA]</code>). Aceita TAB, ;, , ou múltiplos espaços. Com ou sem cabeçalho.</div>
+      </div>
+      <div class="toolbar">
+        <button id="btnExportCsv" class="btn">Exportar CSV (todas)</button>
+        <button id="btnExportXls" class="btn">Exportar Excel (todas)</button>
+        <button id="btnReset" class="btn danger">Limpar empresa</button>
+      </div>
+    </header>
 
-    <div id="msg" class="muted"></div>
+    <section class="row">
+      <div class="card">
+        <label class="muted">Cole aqui o <b>CSV/TSV da semana</b>.</label>
+        <textarea id="txtPaste" rows="8" placeholder="GRUPO,PLACA,POSIÇÃO SERV,ENDEREÇO,EQUIPAMENTO[,ÁREA]
+VEÍCULOS BALCÃO	JAM5J05	23/06/2024 03:10	Rua Pastor Heinrich...	GV50
+..."></textarea>
+        <div class="dates" style="margin-top:8px;display:flex;gap:8px;align-items:end;">
+          <div>
+            <label class="muted" style="display:block;font-size:12px;">Início</label>
+            <input id="dtStart" type="date" />
+          </div>
+          <div>
+            <label class="muted" style="display:block;font-size:12px;">Fim</label>
+            <input id="dtEnd" type="date" />
+          </div>
+          <input id="inpWeekLabel" type="text" placeholder="dd/mm/aaaa a dd/mm/aaaa" style="flex:1;" />
+          <button id="btnAddWeek" class="btn primary">Adicionar semana (CSV)</button>
+        </div>
+        <div class="muted" style="margin-top:6px;">Rótulo no padrão <b>dd/mm/aaaa</b>. Pode digitar ou escolher no calendário.</div>
+      </div>
 
-    <footer>
+      <div class="card">
+        <label class="muted">Filtrar por placa:</label>
+        <input id="inpFilter" type="text" placeholder="Digite parte da placa…" />
+        <div id="stats" class="muted" style="margin-top:6px;">—</div>
+      </div>
+    </section>
+
+    <section class="table-wrap" style="margin-top:16px;">
+      <table id="grid">
+        <thead>
+          <tr id="headRow"></tr>
+          <tr id="subHeadRow" class="sub"></tr>
+        </thead>
+        <tbody id="body"></tbody>
+      </table>
+    </section>
+
+    <footer class="muted" style="margin-top:12px;">
+      Abas independentes por empresa. Linhas fixas (com suporte a placas repetidas), coluna opcional <b>ÁREA</b>, e exportações CSV/XLSX por semana e gerais.
     </footer>
-  </main>
+  </div>
 
-  <script>
-    const $ = (sel) => document.querySelector(sel);
-    const modeSel = $('#mode');
-    const outSel = $('#outMode');
-    const inBox = $('#inBox');
-    const outBox = $('#outBox');
-    const inTitle = $('#inTitle');
-    const outTitle = $('#outTitle');
-    const msgEl = $('#msg');
+  <!-- XLSX com fallback de CDN -->
+  <script
+    src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"
+    onerror="(function(){var s=document.createElement('script');s.src='https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js';document.head.appendChild(s)})();"
+  ></script>
 
-    const msg = (t, isErr=false) => { msgEl.textContent = t; msgEl.className = isErr ? 'error' : 'muted'; };
+<script>
+(function(){
+  /* ====== MULTI-EMPRESA (ABAS) ====== */
+  const LS_GLOBAL = 'op_companies_v1'; // { companies:[], current:'' }
 
-    // ---------- utils ----------
-
-    // Pega a raiz correta: aceita {type:'addForm', data:{...}} ou já {fields:[...]}, etc.
-function getFormRoot(obj){
-  if (obj && obj.type === 'addForm' && obj.data) return obj.data;
-  if (obj && obj.data && Array.isArray(obj.data.fields)) return obj.data;
-  if (obj && Array.isArray(obj.fields)) return obj;
-  throw new Error('Estrutura inesperada: não encontrei `fields`.');
-}
-
-// Corrige pequenos desvios que costumam vir das outras conversões
-function normalizeFieldsForSQL(fields){
-  return fields.map(f => {
-    const nf = {...f};
-
-    // 1) tipo "operation-type" deve virar "single-select"
-    if (String(nf.type || '').toLowerCase() === 'operation-type') {
-      nf.type = 'single-select';
+  function loadCompanies(){
+    try{
+      const j = JSON.parse(localStorage.getItem(LS_GLOBAL)||'{}');
+      if (j && Array.isArray(j.companies) && j.companies.length) return j;
+      const def = { companies: ['PAP','TIMBER','BETIOLO'], current: 'PAP' };
+      localStorage.setItem(LS_GLOBAL, JSON.stringify(def));
+      return def;
+    }catch(_){
+      const def = { companies: ['PAP','TIMBER','BETIOLO'], current: 'PAP' };
+      localStorage.setItem(LS_GLOBAL, JSON.stringify(def));
+      return def;
     }
+  }
+  function saveCompanies(obj){ localStorage.setItem(LS_GLOBAL, JSON.stringify(obj)); }
+  function getLSKeys(company){
+    const prefix = `op_${company}_`;
+    return {
+      plates: prefix + 'plates_master_v4',
+      weeks:  prefix + 'weeks_v4',
+      names:  prefix + 'key_display_v1'
+    };
+  }
 
-    // 2) renomear max_len -> "max-len" (mantém valor)
-    if (nf.hasOwnProperty('max_len') && !nf.hasOwnProperty('max-len')) {
-      nf['max-len'] = nf.max_len;
-      delete nf.max_len;
+  let { companies, current } = loadCompanies();
+  const tabsEl = document.getElementById('tabs');
+  const companyTitleEl = document.getElementById('companyTitle');
+
+  function loadStateFor(company){
+    const K = getLSKeys(company);
+    try{
+      masterPlates = JSON.parse(localStorage.getItem(K.plates)||'[]') || [];
+      weeks        = JSON.parse(localStorage.getItem(K.weeks)||'[]')  || [];
+      displayName  = JSON.parse(localStorage.getItem(K.names)||'{}')  || {};
+    }catch(_){
+      masterPlates = []; weeks = []; displayName = {};
     }
+  }
+  function persist(){
+    const K = getLSKeys(current);
+    localStorage.setItem(K.plates, JSON.stringify(masterPlates));
+    localStorage.setItem(K.weeks,  JSON.stringify(weeks));
+    localStorage.setItem(K.names,  JSON.stringify(displayName));
+  }
 
-    return nf;
+  // === RENDER DAS ABAS (corrigido: fecha chaves e adiciona appendChild)
+  function renderTabs(){
+    tabsEl.innerHTML = '';
+    companies.forEach(name=>{
+      const b = document.createElement('button');
+      b.className = 'tab' + (name===current?' active':'');
+      b.textContent = name;
+      b.addEventListener('click', ()=>{
+        current = name;
+        saveCompanies({companies, current});
+        loadStateFor(current);
+        renderTabs();
+        render();
+      });
+      tabsEl.appendChild(b); // <- faltava
+    });
+    companyTitleEl.textContent = `— ${current}`;
+  }
+
+  // === Helpers para nomes de abas (fora de renderTabs)
+  const normName = (s) => (s || '')
+    .toString()
+    .trim()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase();
+
+  const existsCompany = (arr, name, skipIndex = -1) =>
+    arr.some((c, i) => i !== skipIndex && normName(c) === normName(name));
+
+  // + Nova empresa (sem duplicar save e com normalização)
+  document.getElementById('btnAddCompany').addEventListener('click', ()=>{
+    const name = prompt('Nome da nova empresa (aba):');
+    if (!name) return;
+    const n = name.trim();
+    if (!n) return;
+
+    if (existsCompany(companies, n))
+      return alert('Já existe uma aba com esse nome.');
+
+    companies.push(n);
+    current = n;
+
+    const K = getLSKeys(n);
+    localStorage.setItem(K.plates, JSON.stringify([]));
+    localStorage.setItem(K.weeks,  JSON.stringify([]));
+    localStorage.setItem(K.names,  JSON.stringify({}));
+
+    saveCompanies({ companies, current });
+    loadStateFor(current);
+    renderTabs();
+    render();
   });
-}
 
-// Minifica sem alterar conteúdo
-function jsonMin(v){ return JSON.stringify(v); }
+  // Renomear (com colisão segura)
+  document.getElementById('btnRenameCompany').addEventListener('click', ()=>{
+    const idx = companies.indexOf(current);
+    if (idx < 0) return;
 
+    const novo = prompt('Novo nome da empresa:', current);
+    if (!novo) return;
+    const newName = novo.trim();
+    if (!newName) return;
 
-    function detectInputFormat(str){
-    const s = String(str || '').trim();
-    if (!s) return null;
+    if (normName(newName) === normName(current)) return;
+    if (existsCompany(companies, newName, idx))
+      return alert('Já existe uma aba com esse nome.');
 
-    // 1) tenta JSON primeiro
-    try { JSON.parse(s); return 'JSON'; } catch {}
+    const oldK = getLSKeys(current);
+    const plates = localStorage.getItem(oldK.plates);
+    const weeks  = localStorage.getItem(oldK.weeks);
+    const names  = localStorage.getItem(oldK.names);
 
-    // 2) heurística p/ SQL (literal ou INSERT com literal)
-    // - começa e termina com aspas simples
-    // - OU contém INSERT/VALUES e um literal entre aspas simples
-    if (/^'.*'$/.test(s) || /\binsert\b|\bvalues\b/i.test(s)) {
-      // se conseguir extrair um literal SQL plausível, considera SQL
-      try {
-        const lit = extractFirstSqlStringLiteral(s);
-        if (lit != null) return 'SQL';
-      } catch {}
-    }
+    const newK = getLSKeys(newName);
+    if (plates !== null) localStorage.setItem(newK.plates, plates);
+    if (weeks  !== null) localStorage.setItem(newK.weeks,  weeks);
+    if (names  !== null) localStorage.setItem(newK.names,  names);
 
-    // 3) heurística p/ XML
-    if (/^<\?xml[\s\S]*\?>/i.test(s) || /^<\s*form[\s>]/i.test(s) || /^<\s*[a-zA-Z]/.test(s)) return 'XML';
+    localStorage.removeItem(oldK.plates);
+    localStorage.removeItem(oldK.weeks);
+    localStorage.removeItem(oldK.names);
 
-    return null;
-  }
+    companies[idx] = newName;
+    current = newName;
 
-    function escapeXml(str=""){
-      return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/\"/g, '&quot;')
-        .replace(/\'/g, '&apos;');
-    }
-    function attr(k, v){
-  if (v === undefined || v === null || v === '') return '';
-  return ` ${k}="${escapeXml(String(v))}"`;
-}
+    saveCompanies({ companies, current });
+    loadStateFor(current);
+    renderTabs();
+    render();
+  });
 
-// Converte texto JSON -> literal SQL seguro: envolve em aspas simples
-// e duplica aspas simples internas (padrão ANSI SQL).
-function toSqlLiteral(jsonTextMinified){
-  return "'" + String(jsonTextMinified).replace(/'/g, "''") + "'";
-}
+  // Excluir empresa
+  document.getElementById('btnDeleteCompany').addEventListener('click', ()=>{
+    if (!confirm(`Excluir a empresa "${current}"?`)) return;
 
-// Extrai o PRIMEIRO literal de string SQL de uma query/linha.
-// Suporta escapes ANSI ('' -> ').
-function extractFirstSqlStringLiteral(sql){
-  const s = String(sql || '');
-  const start = s.indexOf("'");
-  if (start === -1) return null;
+    const idx = companies.indexOf(current);
+    if (idx < 0) return;
 
-  let i = start + 1;
-  let out = '';
-  while (i < s.length) {
-    const ch = s[i];
-    if (ch === "'") {
-      // duas aspas simples seguidas -> escape
-      if (s[i + 1] === "'") {
-        out += "'";
-        i += 2;
-        continue;
-      } else {
-        // fim do literal
-        return out;
-      }
+    const K = getLSKeys(current);
+    localStorage.removeItem(K.plates);
+    localStorage.removeItem(K.weeks);
+    localStorage.removeItem(K.names);
+
+    companies.splice(idx, 1);
+    if (!companies.length) {
+      companies = ['GERAL'];
+      current = 'GERAL';
+      const K2 = getLSKeys(current);
+      localStorage.setItem(K2.plates, JSON.stringify([]));
+      localStorage.setItem(K2.weeks,  JSON.stringify([]));
+      localStorage.setItem(K2.names,  JSON.stringify({}));
     } else {
-      out += ch;
-      i++;
+      current = companies[Math.max(0, idx - 1)];
     }
-  }
-  // se chegou aqui, faltou fechar aspas
-  throw new Error('Literal SQL não está fechado com aspas simples.');
-}
 
-// SQL -> texto JSON minificado/normal:
-// 1) extrai literal (ou usa o próprio conteúdo sem aspas, se for apenas um literal cru)
-// 2) retorna a string extraída (sem aspas) já com '' -> ' desfeito
-function fromSqlLiteral(sql){
-  const trimmed = String(sql || '').trim();
-  if (trimmed.startsWith("'") && trimmed.endsWith("'")) {
-    // literal puro
-    const inner = trimmed.slice(1, -1).replace(/''/g, "'");
-    return inner;
-  }
-  // tenta extrair de um comando (INSERT/UPDATE/VALUES etc.)
-  const lit = extractFirstSqlStringLiteral(trimmed);
-  if (lit == null) throw new Error('Não encontrei literal SQL entre aspas simples.');
-  return lit;
-}
+    saveCompanies({ companies, current });
+    loadStateFor(current);
+    renderTabs();
+    render();
+  });
 
+  /* ====== ESTADO POR EMPRESA ====== */
+  const norm = (s)=> (s||'').toString().trim().toUpperCase();
+  const cleanPlate = (s) => norm(String(s || '').split('(')[0]);
+  const pad = (n)=> String(n).padStart(2,'0');
+  const fmtBR = (d)=> `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()}`;
+  const fmtISO = (d)=> `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 
-function prettyXml(xml){
-  try{
-    xml = xml.replace(/\r?\n/g,'').replace(/\t/g,' ');
+  // datas padrão (seg a dom)
+  const dtStart = document.getElementById('dtStart');
+  const dtEnd = document.getElementById('dtEnd');
+  const inpWeekLabel = document.getElementById('inpWeekLabel');
+  const setDefaultDates=()=>{
+    const t=new Date(); const d=t.getDay(); const diff=(d+6)%7;
+    const mon=new Date(t); mon.setDate(t.getDate()-diff);
+    const sun=new Date(mon); sun.setDate(mon.getDate()+6);
+    dtStart.value=fmtISO(mon); dtEnd.value=fmtISO(sun);
+    inpWeekLabel.value=`${fmtBR(mon)} a ${fmtBR(sun)}`;
+  };
+  const syncLabel=()=>{
+    if(!dtStart.value||!dtEnd.value) return;
+    const [y1,m1,d1]=dtStart.value.split('-').map(Number);
+    const [y2,m2,d2]=dtEnd.value.split('-').map(Number);
+    const a=new Date(y1,m1-1,d1); const b=new Date(y2,m2-1,d2);
+    inpWeekLabel.value=`${fmtBR(a)} a ${fmtBR(b)}`;
+  };
+  dtStart.addEventListener('change', syncLabel);
+  dtEnd.addEventListener('change', syncLabel);
 
-    // --- proteger pares compactos: ficam "><" sem quebra ---
-    const PROTECT = '__NO_NL__';
-    const COMPACT_CLOSE = '(?:int-numpad-type|keyboard-type)'; // adicione mais tags aqui se quiser
-    xml = xml.replace(new RegExp('>\\s*(?=</' + COMPACT_CLOSE + '>)', 'g'), PROTECT);
-
-    // quebras normais entre tags
-    xml = xml.replace(/>(\s*)</g, '>\n<');
-
-    // restaura os trechos protegidos sem quebra
-    xml = xml.replace(new RegExp(PROTECT, 'g'), '>');
-
-    let indent = 0;
-    const pad = n => '  '.repeat(n);
-
-    return xml.split('\n').map(l => {
-      const t = l.trim();
-      if (!t) return '';
-      if (t.startsWith('</')) indent = Math.max(0, indent - 1);
-      const out = pad(indent) + t;
-      if (/^<[^!?][^>]*[^/]>(?!.*<\/)/.test(t) && !t.startsWith('</')) indent++;
-      return out;
-    }).join('\n');
-  } catch {
-    return xml;
-  }
-}
-
-function prettyJson(obj){
-  try{ return JSON.stringify(typeof obj==='string' ? JSON.parse(obj) : obj, null, 2); }
-  catch{ return String(obj); }
-}
-
-function toNumOrStr(v){
-  if (v === undefined || v === null) return v;
-  const n = Number(v);
-  return Number.isFinite(n) && String(n) === String(v).trim() ? n : String(v);
-}
-
-function compactJsonString(src){
-  const obj = JSON.parse(String(src || '').trim());
-  return JSON.stringify(obj); // minificado
-}
-
-function jsonToSql(jsonStr){
-  // 1) Parse e raiz
-  const raw = JSON.parse(String(jsonStr || '').trim());
-  const root = getFormRoot(raw);
-
-  // 2) Extrair colunas do INSERT
-  const form_id            = root.form_id ?? root.id;
-  const version            = root.version ?? '';
-  const title              = root.title ?? '';
-  const color              = root.color ?? null;
-  const machine_status_id  = root.machine_status ?? null;
-  const operador_status_id = root.operador_status ?? null;
-  const form_type          = root.form_type ?? '';
-
-  if (form_id == null) throw new Error('Campo obrigatório ausente: form_id.');
-
-  // 3) Campo JSON "field": somente {"fields":[...]} minificado
-  const fields = Array.isArray(root.fields) ? root.fields : [];
-  const fieldsFixed = normalizeFieldsForSQL(fields);
-  const fieldJsonMin = jsonMin({ fields: fieldsFixed });
-
-  // 4) Escapar strings p/ SQL (aspas simples duplicadas)
-  const esc = s => String(s).replace(/'/g, "''");
-
-  // 5) Montar INSERT no formato pedido
-  const sql =
-`INSERT INTO smartfleet.message_forms (form_id,
-                                      field,
-                                      version,
-                                      title,
-                                      color,
-                                      machine_status_id,
-                                      operador_status_id,
-                                      form_type)
-VALUES (${Number(form_id)},
-        '${esc(fieldJsonMin)}',
-        ${Number(version)},
-        '${esc(title)}',
-        ${color == null ? 'NULL' : `'${esc(color)}'`},
-        ${machine_status_id == null ? 'NULL' : Number(machine_status_id)},
-        ${operador_status_id == null ? 'NULL' : Number(operador_status_id)},
-        '${esc(form_type)}');`;
-
-  return sql;
-}
-
-function sqlToJson(sqlStr){
-  const jsonText = fromSqlLiteral(sqlStr); // conteúdo entre aspas ('' desfeito)
-  // valida que é JSON mesmo; se ok, "prettifica" para saída
-  const obj = JSON.parse(jsonText);
-  return prettyJson(obj);
-}
-
-    // ---------- JSON → XML ----------
-function jsonToXml(jsonStr){
-  let data;
-  try { data = JSON.parse(jsonStr); }
-  catch (e) { throw new Error('JSON inválido: ' + e.message); }
-
-  const root = data?.data?.fields ? data.data : data;
-  if (!root || !Array.isArray(root.fields)) {
-    throw new Error('Estrutura inesperada: não encontrei `fields`.');
-  }
-
-  // --- cabeçalho do <form> conforme regra ---
-  const formId   = root.form_id ?? root.id ?? '';
-  const version  = root.version ?? '';
-  const vDigits  = String(version).replace(/\D/g, '');      // só números
-  const clientId = (vDigits.slice(0, 4) || '0000');         // 4 primeiros dígitos
-
-  let xml = `<?xml version="1.0"?>\n` +
-            `<form id="${escapeXml(formId)}" position="1" version="${escapeXml(version)}" client_id="${escapeXml(clientId)}" deprecated="false">`;
-
-  if (root.title !== undefined) {
-    xml += `\n  <title>${escapeXml(String(root.title))}</title>`;
-  }
-
-  // helper: número de dígitos de um max int
-  const digitsFromMax = (maxVal)=>{
-    if(!Number.isFinite(maxVal) || maxVal <= 0) return undefined;
-    return String(Math.floor(maxVal)).length;
+  // Parser com ÁREA opcional
+  const detectDelimiter = (line) => {
+    if (line.includes('\t')) return '\t';
+    if (line.includes(';')) return ';';
+    if (line.includes(',')) return ',';
+    const blocks = line.trim().split(/\s{2,}/);
+    if (blocks.length >= 4) return 'spaces';
+    return 'spaces';
+  };
+  const splitRowGeneric = (row, delim) => {
+    if (delim === '\t') return row.split('\t').map(s => s.replace(/^"|"$/g,'').trim());
+    if (delim === 'spaces') return row.trim().split(/\s{2,}/).map(s => s.replace(/^"|"$/g,'').trim());
+    const out=[]; let cur='', inQ=false;
+    for (let i=0;i<row.length;i++){
+      const ch=row[i];
+      if (ch === '"'){ if(inQ && row[i+1]==='"'){cur+='"';i++;} else inQ=!inQ; }
+      else if (ch===delim && !inQ){ out.push(cur.trim()); cur=''; }
+      else cur+=ch;
+    }
+    out.push(cur.trim());
+    return out.map(s=>s.replace(/^"|"$/g,''));
   };
 
-  for (const f of root.fields){
-    const req  = !!f.required;
-    const type = String(f.type || '').toLowerCase();  // normaliza
-    const title = String(f.title ?? '');
-    const placeholder = String(f.placeholder ?? f.default ?? '');
+  const DEFAULT_FIELDS = ["GRUPO","PLACA","POSIÇÃO SERV","ENDEREÇO","EQUIPAMENTO"];
+  const canonicalizeHeader = (name) => {
+    const raw = name.trim();
+    const n = raw.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
+    if (n === 'AREA') return 'ÁREA';
+    if (n.startsWith('POSICAO')) return 'POSIÇÃO SERV';
+    if (n.startsWith('POSIÇÃO')) return 'POSIÇÃO SERV';
+    return raw;
+  };
+  const normalizeClipboardDump = (text) => {
+  const raw = (text || '').replace(/\r/g, '');
+  const lines = raw.split('\n').map(l => l.trimEnd()).filter(l => l.trim().length);
 
-    xml += `\n  <item id="${escapeXml(f.id)}" required="${req ? 'true' : 'false'}">`;
-    xml += `\n    <title>${escapeXml(title)}</title>`;
-    if (placeholder) xml += `\n    <default>${escapeXml(placeholder)}</default>`;
+  const out = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
 
-    if (type === 'int'){
-      const minVal = Number.isFinite(f.min) ? f.min : undefined;
-      const maxVal = Number.isFinite(f.max) ? f.max : undefined;
-      const maxIntLen = Number.isFinite(maxVal) ? digitsFromMax(maxVal) : undefined;
-      // mantém abertura + fechamento na MESMA LINHA (prettyXml não vai quebrar por causa da proteção que adicionamos)
-      xml += `\n    <int-numpad-type${attr('max-int-len', maxIntLen ?? 8)}${attr('min-int-val', minVal)}${attr('max-int-val', maxVal)}></int-numpad-type>`;
+    // Linha "principal" (tem TAB: Grupo, Placa, Posição, [talvez vazio])
+    if (line.includes('\t')) {
+      const cols = line.split('\t');
 
-} else if (
-  type === 'single-select-type' || type === 'single-select' ||
-  type === 'multi-select-type'  || type === 'multi-select'  ||
-  type === 'operation-type' // suporta como select
-){
-  // usa <single-select-type> como contêiner padrão
-const isMulti =
-  type === 'multi-select-type' || type === 'multi-select';
+      // garante ao menos 3 colunas (grupo/placa/posição)
+      const grupo = cols[0] ?? '';
+      const placa = cols[1] ?? '';
+      const pos   = cols[2] ?? '';
 
-const containerTag = isMulti ? 'multi-select-type' : 'single-select-type';
+      // Se já vieram endereço/equipamento na mesma linha, mantém
+      let endereco = cols[3] ?? '';
+      let equip    = cols[4] ?? '';
 
-xml += `\n    <${containerTag}>`;
+      // Se endereço vazio e próxima linha NÃO tem TAB, pega como endereço
+      if (!endereco && lines[i + 1] && !lines[i + 1].includes('\t')) {
+        endereco = lines[i + 1];
+        i += 1;
+      }
 
-const options = Array.isArray(f.options) ? f.options : [];
-for (const o of options) {
-  if (Array.isArray(o)) {
-    const [oid, label, selected] = o;
-    xml += `\n      <option${attr('id', oid)}${attr('selected', selected ? 'true':'false')}>${escapeXml(label ?? '')}</option>`;
-  } else {
-    const label = o.value ?? o.label ?? '';
-    const selected = !!o.selected;
-    xml += `\n      <option${attr('id', o.id)}${attr('selected', selected ? 'true':'false')}>${escapeXml(label)}</option>`;
-  }
-}
+      // Se equipamento vazio e próxima linha NÃO tem TAB, pega como equipamento
+      if (!equip && lines[i + 1] && !lines[i + 1].includes('\t')) {
+        equip = lines[i + 1];
+        i += 1;
+      }
 
-xml += `\n    </${containerTag}>`;
-
-
-    } else {
-      const maxTextLen = Number.isFinite(f.max) ? f.max : undefined;
-      xml += `\n    <keyboard-type${attr('max-text-len', maxTextLen)}></keyboard-type>`;
+      out.push([grupo, placa, pos, endereco, equip].join('\t'));
+      continue;
     }
 
-    xml += `\n  </item>`;
+    // Se cair aqui, é uma linha solta (endereço/equip) sem uma linha principal antes
+    // ignora para não virar "registro fantasma"
   }
 
-  xml += `\n</form>`;
-  return prettyXml(xml);
-}
-    // ---------- XML → JSON (objeto) ----------
-    function normalizeLooseXml(str){
-      return str
-        .replace(/<int-numpad-type([^>]*)>\s*<\/int>/gi, '<int-numpad-type$1></int-numpad-type>')
-        .replace(/<keyboard-type([^>]*)>\s*<\/keyboard>/gi, '<keyboard-type$1></keyboard-type>');
+  return out.join('\n');
+};
+  const parseTable = (text) => {
+    text = normalizeClipboardDump(text);
+    const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
+    if (!lines.length) throw new Error('Nada para importar.');
+    const delimiter = detectDelimiter(lines[0]);
+    const firstCols = splitRowGeneric(lines[0], delimiter);
+
+    let fields, startRow;
+    const headCandRaw = firstCols.map(h => h.trim());
+    const headCand = headCandRaw.map(canonicalizeHeader);
+    const placaIdxHeader = headCand.findIndex(h => norm(h) === 'PLACA');
+
+    if (placaIdxHeader !== -1) { fields = headCand; startRow = 1; }
+    else {
+      const firstLen = firstCols.length;
+      fields = DEFAULT_FIELDS.slice();
+      if (firstLen === DEFAULT_FIELDS.length + 1) fields = [...DEFAULT_FIELDS, 'ÁREA'];
+      startRow = 0;
     }
+    fields = fields.map(canonicalizeHeader);
 
-    // ====== CABEÇALHOS PADRÃO (apenas para XML -> JSON) ======
+    let placaIdx = fields.findIndex(h => norm(h) === 'PLACA');
+    if (placaIdx === -1) placaIdx = 1;
 
-    const JSON_HEADERS_BY_FORM_ID = {
-      4101:   { form_type: "breakdown",        title: "AGUARDANDO MANUTENÇÃO",                 machine_status: 4,  operador_status: 3,  operator_types: [1,2,3,4,11,18,19], operator_statuses_allowed: [3] },
-      101004: { form_type: "workLunch",        title: "ALMOÇO",                                 machine_status: 11, operador_status: -1, operator_types: [1,2,4,11,18],       operator_statuses_allowed: [3] },
-      11310:  { form_type: "appropriation",    title: "APROPRIACAO DO EQUIPAMENTO",            machine_status: -1, operador_status: 2,  operator_types: [1,2,4,11,18],       operator_statuses_allowed: [1], color: "03A9F4" },
-      12120:  { form_type: "checklist",        title: "CHECKLIST",                              machine_status: 6,  operador_status: 3,  operator_types: [1,2,4,11,18],       operator_statuses_allowed: [2] },
-      10403:  { form_type: "expropriation",    title: "DESAPROPRIACAO DO EQUIPAMENTO",         machine_status: 2,  operador_status: 1,  operator_types: [1,2,4,11,18],       operator_statuses_allowed: [3] },
-      7720:   { form_type: "movingFull",       title: "DESLOCANDO CARREGADO",                  machine_status: 31, operador_status: 3,  operator_types: [1,2,4,11,18],       operator_statuses_allowed: [3] },
-      7520:   { form_type: "movingEmpty",      title: "DESLOCANDO VAZIO",                      machine_status: 29, operador_status: 3,  operator_types: [1,2,4,11,18],       operator_statuses_allowed: [3] },
-      5205:   { form_type: "end_supply",       title: "FIM ABASTECIMENTO/LUBRIFICAÇÃO",        machine_status: 2,  operador_status: -1, operator_types: [1,2,3,4,8,11,18],   operator_statuses_allowed: [3,4] },
-      4303:   { form_type: "end_maintenance",  title: "FIM DE MANUTENÇÃO",                      machine_status: -1, operador_status: 3,  operator_types: [1,2,3,11,18,19],    operator_statuses_allowed: [4] },
-      51001:  { form_type: "start_supply",     title: "INÍCIO ABASTECIMENTO / LUBRIFICAÇÃO",   machine_status: -1, operador_status: -1, operator_types: [1,2,3,4,8,11,18],   operator_statuses_allowed: [3,4] },
-      7021:   { form_type: "initLoad",         title: "INÍCIO DE CARREGAMENTO",                machine_status: 30, operador_status: 3,  operator_types: [1,2,4,11,18],       operator_statuses_allowed: [3] },
-      7121:   { form_type: "initUnload",       title: "INÍCIO DE DESCARREGAMENTO",             machine_status: 32, operador_status: 3,  operator_types: [1,2,4,11,18],       operator_statuses_allowed: [3] },
-      4201:   { form_type: "start_maintenance",title: "INÍCIO DE MANUTENÇÃO",                  machine_status: 5,  operador_status: 4,  operator_types: [1,2,3,11,18,19],    operator_statuses_allowed: [3] },
-      101005: { form_type: "workBreak",        title: "INTERVALO",                              machine_status: 39, operador_status: -1, operator_types: [1,2,4,11,18],       operator_statuses_allowed: [3] },
-      101080: { form_type: "operational_stop", title: "PARADA OPERACIONAL",                    machine_status: 6,  operador_status: 3,  operator_types: [1,2,4,11,18],       operator_statuses_allowed: [3] },
-    };
-
-    // completa/ajusta o cabeçalho conforme o form_id
-    function applyJsonHeaderForForm(data){
-      const fid = Number(data.form_id);
-      const tpl = JSON_HEADERS_BY_FORM_ID[fid];
-      if (!tpl) return data;
-
-      const title = (data.title !== undefined && String(data.title).trim() !== '')
-        ? data.title
-        : tpl.title;
-
-      const out = {
-        form_type: tpl.form_type,
-        form_id: data.form_id,
-        version: data.version,
-        title,
-        machine_status: tpl.machine_status,
-        operador_status: tpl.operador_status,
-        operator_types: Array.isArray(tpl.operator_types) ? [...tpl.operator_types] : [],
-        operator_statuses_allowed: Array.isArray(tpl.operator_statuses_allowed) ? [...tpl.operator_statuses_allowed] : [],
-        fields: data.fields
-      };
-      if (tpl.color) out.color = tpl.color;
-      return out;
+    const rows = [];
+    for (let i = startRow; i < lines.length; i++) {
+      const cols = splitRowGeneric(lines[i], delimiter);
+      if (!cols.length) continue;
+      const plateRaw = cols[placaIdx] ?? cols[1] ?? '';
+      const plate = cleanPlate(plateRaw);
+      if (!plate) continue;
+      const obj = {};
+      for (let j = 0; j < fields.length; j++) obj[fields[j]] = cols[j] ?? '';
+      rows.push({ plate, obj });
     }
+    if (!rows.length) throw new Error('Nenhuma linha válida encontrada (confira a coluna PLACA/2ª coluna).');
+    return { fields, rows };
+  };
 
-    // ordena o cabeçalho na ordem desejada
-    function orderJsonDataKeys(d){
-      const ordered = {
-        form_type: d.form_type,
-        form_id: d.form_id,
-        version: d.version,
-        title: d.title,
-      };
-      if (d.color !== undefined) ordered.color = d.color;
-      Object.assign(ordered, {
-        machine_status: d.machine_status,
-        operador_status: d.operador_status,
-        operator_types: d.operator_types,
-        operator_statuses_allowed: d.operator_statuses_allowed,
-        fields: d.fields
-      });
-      return ordered;
-    }
+  // UI refs
+  const txtPaste   = document.getElementById('txtPaste');
+  const headRow    = document.getElementById('headRow');
+  const subHeadRow = document.getElementById('subHeadRow');
+  const body       = document.getElementById('body');
+  const stats      = document.getElementById('stats');
+  const inpFilter  = document.getElementById('inpFilter');
 
-    function xmlToJsonObject(xmlStr){
-      const clean = normalizeLooseXml(xmlStr);
-      const doc = new DOMParser().parseFromString(clean, 'application/xml');
-      const perr = doc.querySelector('parsererror'); 
-      if(perr) throw new Error('XML inválido: ' + perr.textContent.replace(/\s+/g,' ').trim());
+  // helpers de chave para duplicatas
+  const makeKey = (plate, idx)=> `${plate}##${idx}`;
+  const keyToPlate = (key)=> displayName[key] || key.split('##')[0];
 
-      const form = doc.querySelector('form'); 
-      if(!form) throw new Error('Não encontrei <form> no XML.');
+  // adicionar semana
+  function addWeek(){
+    try{
+      const text = txtPaste.value.trim();
+      if (!text) return alert('Cole o CSV/TSV da semana.');
+      const { fields, rows } = parseTable(text);
 
+      const occ = Object.create(null);
       const data = {};
-      data.form_id = toNumOrStr(form.getAttribute('id'));
-      data.version = toNumOrStr(form.getAttribute('version'));
+      for (const { plate, obj } of rows) {
+        occ[plate] = (occ[plate] || 0) + 1;
+        const idx = occ[plate];
+        const key = makeKey(plate, idx);
+        if (!masterPlates.includes(key)) { masterPlates.push(key); displayName[key] = plate; }
+        data[key] = obj;
+      }
 
-      const titleEl = form.querySelector(':scope > title');
-      if(titleEl) data.title = titleEl.textContent || '';
+      let label = inpWeekLabel.value.trim();
+      if (!label && dtStart.value && dtEnd.value) {
+        const [y1,m1,d1] = dtStart.value.split('-').map(Number);
+        const [y2,m2,d2] = dtEnd.value.split('-').map(Number);
+        label = `${fmtBR(new Date(y1,m1-1,d1))} a ${fmtBR(new Date(y2,m2-1,d2))}`;
+      }
+      if (!label) label = 'Semana';
 
-      data.fields = [];
-      form.querySelectorAll(':scope > item').forEach(item=>{
-        const f = {};
-        f.id = toNumOrStr(item.getAttribute('id'));
-        f.required = String(item.getAttribute('required')).toLowerCase() === 'true';
+      weeks.push({ id: String(Date.now()), label, fields, data });
+      txtPaste.value='';
+      render();
+      persist();
+    }catch(err){ console.error(err); alert(err.message||'Falha ao ler os dados.'); }
+  }
+  document.getElementById('btnAddWeek').addEventListener('click', addWeek);
 
-        const t=item.querySelector(':scope > title'); 
-        if(t) f.title = t.textContent || '';
+  const removeWeek = (id)=>{ weeks = weeks.filter(w=>w.id!==id); render(); persist(); };
 
-        const dft=item.querySelector(':scope > default'); 
-        if(dft) f.placeholder = dft.textContent || '';
+  // === Copiar apenas uma semana para área de transferência ===
+  function copyWeekToClipboard(weekId){
+    const wk = weeks.find(w => w.id === weekId);
+    if (!wk) return alert('Semana não encontrada.');
 
-        const intNode = item.querySelector(':scope > int-numpad-type');
-        const selNode = item.querySelector(':scope > single-select-type, :scope > multi-select-type');
-        const keyNode = item.querySelector(':scope > keyboard-type');
+    const linhas = [];
 
-        if (selNode){
-          const isMulti = selNode.tagName.toLowerCase() === 'multi-select-type';
-          f.type = isMulti ? 'multi-select-type' : 'single-select-type';
-          f.options = [];
-          selNode.querySelectorAll('option').forEach(op=>{
-            const o = {};
-            o.id = toNumOrStr(op.getAttribute('id'));
-            const sel=(op.getAttribute('selected')||'').toLowerCase();
-            o.value = op.textContent || '';
-            o.selected = (sel==='true'||sel==='1'||sel==='yes');
-            const ms=op.getAttribute('machine_status'); if(ms!==null) o.machine_status = toNumOrStr(ms);
-            const cv=op.getAttribute('child_visibility'); if(cv!==null) o.child_visibility = toNumOrStr(cv);
-            f.options.push(o);
-          });
+    // Cabeçalho
+    linhas.push(wk.fields.join('\t'));
 
-          // Regra especial: TURNO
-          if ((f.title || '').trim().toUpperCase() === 'TURNO'){
-            f.type = 'single-select';
-            f.work_shift = true;
-          }
-
-        } else if (intNode){
-          f.type = 'int';
-          const mil=intNode.getAttribute('min-int-val');
-          const mal=intNode.getAttribute('max-int-val');
-          const mlen=intNode.getAttribute('max-int-len');
-          if(mil!==null) f.min = toNumOrStr(mil);
-          if(mal!==null) f.max = toNumOrStr(mal);
-          if(mlen && mal===null){
-            const n=Number(mlen);
-            if(Number.isFinite(n)&&n>0&&n<=15){ f.max = Number('9'.repeat(n)); }
-          }
-        } else if (keyNode){
-          f.type = 'keyboard-type';
-          const mtl=keyNode.getAttribute('max-text-len'); 
-          if(mtl!==null) f.max = toNumOrStr(mtl);
-        } else {
-          f.type = 'keyboard-type';
-        }
-
-        data.fields.push(f);
+    // Linhas
+    masterPlates.forEach(key => {
+      const has = !!wk.data[key];
+      const row = wk.fields.map(f => {
+        if (!has) return '';
+        let v = wk.data[key][f] ?? '';
+        if (f.toUpperCase() === 'PLACA') v = keyToPlate(key);
+        return String(v);
       });
+      linhas.push(row.join('\t'));
+    });
 
-      // aplica cabeçalho e ordena antes de retornar
-      const normalized = applyJsonHeaderForForm(data);
-      const ordered = orderJsonDataKeys(normalized);
-      return { type: 'addForm', data: ordered };
+    const texto = linhas.join('\n');
+
+    // API moderna
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(texto)
+        .then(() => alert('Semana copiada para a área de transferência.'))
+        .catch(err => {
+          console.error(err);
+          fallbackCopyText(texto);
+        });
+    } else {
+      // fallback
+      fallbackCopyText(texto);
     }
+  }
 
-    function xmlToJson(xmlStr){
-      return prettyJson(xmlToJsonObject(xmlStr));
+  function fallbackCopyText(texto){
+    const ta = document.createElement('textarea');
+    ta.value = texto;
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    try {
+      document.execCommand('copy');
+      alert('Semana copiada para a área de transferência.');
+    } catch (e) {
+      alert('Não foi possível copiar automaticamente. Selecione e copie manualmente.');
     }
-
-    // ---------- JSON/XML → INTELIGENTE ----------
-//Normalizador de campos: corrige aliases e tipos
-function normalizeFieldAliases(f){
-  const out = { ...f };
-
-  const t = String(out.type || '').toLowerCase();
-  if (t === 'text' || t === 'string' || t === 'varchar' || t === 'keyboard') {
-    out.type = 'keyboard-type';
-  }
-  if (t === 'single-select') out.type = 'single-select-type';
-  if (t === 'multi-select')  out.type = 'multi-select-type';
-
-  // caracteres: min_len / max_len / minlen / maxlen → minlen/maxlen
-  const rawMinLen = out.minlen ?? out['min_len'] ?? out['min-len'];
-  const rawMaxLen = out.maxlen ?? out['max_len'] ?? out['max-len'];
-
-  if (rawMinLen != null) {
-    const n = Number(rawMinLen);
-    if (Number.isFinite(n)) out.minlen = n;
-  }
-  if (rawMaxLen != null) {
-    const n = Number(rawMaxLen);
-    if (Number.isFinite(n)) out.maxlen = n;
+    document.body.removeChild(ta);
   }
 
-  delete out['min-len']; delete out['min_len'];
-  delete out['max-len']; delete out['max_len'];
 
-  // números: mantém min/max como estão, só converte string → número
-  if (out.min != null && !Number.isFinite(out.min)) out.min = Number(out.min);
-  if (out.max != null && !Number.isFinite(out.max)) out.max = Number(out.max);
-
-  return out;
-}
-
-// tipos que têm "options" (serão convertidos p/ tuplas no INTELIGENTE)
-const SELECT_TYPES = new Set([
-  'single-select-type',
-  'single-select',
-  'multi-select-type',
-  'multi-select',
-  'operation-type' // tratado como select e normalizado p/ single-select
-]);
-
-// Normaliza listas em child_visibility e dynamic_option (vírgula → ponto-e-vírgula)
-function normalizeJsonDynamicOptions(jsonStr){
-  let obj;
-  try {
-    obj = JSON.parse(String(jsonStr || '').trim());
-  } catch (e) {
-    throw new Error('JSON inválido: ' + e.message);
+  // exportações (com fallback HTML)
+  function downloadHTML(filename, html){
+    const blob = new Blob(['\uFEFF<html><head><meta charset="UTF-8"></head><body>'+html+'</body></html>'],
+      { type:'application/vnd.ms-excel' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href=url; a.download=filename.replace(/\.xlsx$/,'')+'.xls.html'; a.click(); URL.revokeObjectURL(url);
   }
-
-  try {
-    const root = getFormRoot(obj); // já existe no seu código
-    const fields = Array.isArray(root.fields) ? root.fields : [];
-
-    fields.forEach(f => {
-      if (!Array.isArray(f.options)) return;
-
-      f.options.forEach(op => {
-        if (!op || typeof op !== 'object') return;
-
-        ['child_visibility', 'dynamic_option'].forEach(key => {
-          if (op[key] != null && op[key] !== '') {
-            // usa a mesma regra do INTELIGENTE: vírgula → ';', junta arrays etc.
-            op[key] = toInteligenteList(op[key]);
-          }
+  function buildAllWeeksHTMLTable(){
+    let html='<table border="1" cellspacing="0" cellpadding="4"><thead><tr>';
+    weeks.forEach(w=> html+=`<th colspan="${w.fields.length+1}">${w.label}</th>`);
+    html+='</tr><tr>';
+    weeks.forEach(w=>{ w.fields.forEach(f=> html+=`<th>${String(f).replace(/</g,'&lt;')}</th>`); html+='<th></th>'; });
+    html+='</tr></thead><tbody>';
+    masterPlates.forEach(key=>{
+      html+='<tr>';
+      weeks.forEach(w=>{
+        w.fields.forEach(f=>{
+          const has=!!w.data[key]; let val=has?(w.data[key][f]??''):''; 
+          if (has && f.toUpperCase()==='PLACA') val = keyToPlate(key);
+          html+=`<td>${String(val).replace(/</g,'&lt;')}</td>`;
+        });
+        html+='<td></td>';
+      });
+      html+='</tr>';
+    });
+    html+='</tbody></table>'; return html;
+  }
+  function exportXLS(){
+    if(!weeks.length) return alert('Nada para exportar.');
+    if (typeof XLSX==='undefined') return downloadHTML('historico_placas.xlsx', buildAllWeeksHTMLTable());
+    const wb=XLSX.utils.book_new();
+    weeks.forEach(wk=>{
+      const data=[wk.fields.slice()];
+      masterPlates.forEach(key=>{
+        const has=!!wk.data[key];
+        const row=wk.fields.map(f=>{
+          if(!has) return ''; const v=wk.data[key][f]??''; 
+          return (f.toUpperCase()==='PLACA')? keyToPlate(key): v;
+        });
+        data.push(row);
+      });
+      const ws=XLSX.utils.aoa_to_sheet(data);
+      XLSX.utils.book_append_sheet(wb, ws, wk.label.substring(0,31));
+    });
+    XLSX.writeFile(wb,'historico_placas.xlsx');
+  }
+  function exportCSV(){
+    if(!weeks.length) return alert('Nada para exportar.');
+    const head=[]; weeks.forEach(w=> w.fields.forEach(f=> head.push(`${w.label} – ${f}`)));
+    const rows=[head];
+    masterPlates.forEach(key=>{
+      const row=[];
+      weeks.forEach(w=>{
+        w.fields.forEach(f=>{
+          const has=!!w.data[key]; let v=has?(w.data[key][f]??''):''; 
+          if(has && f.toUpperCase()==='PLACA') v=keyToPlate(key);
+          row.push(String(v));
         });
       });
+      rows.push(row);
     });
-
-  } catch (e) {
-    // se não tiver estrutura de form/fields, só segue com o JSON como está
+    const csv=rows.map(r=> r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const blob=new Blob(["\uFEFF"+csv],{type:'text/csv;charset=utf-8;'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download='historico_placas_completo.csv'; a.click(); URL.revokeObjectURL(url);
   }
+  document.getElementById('btnExportCsv').addEventListener('click', exportCSV);
+  document.getElementById('btnExportXls').addEventListener('click', exportXLS);
 
-  return prettyJson(obj);
-}
-
-// Normaliza listas para o padrão "INTELIGENTE":
-// - troca vírgula por ponto-e-vírgula em strings
-// - junta arrays com ';'
-// - suporta objeto { field, options } → "field-opt1;opt2"
-function toInteligenteList(v) {
-  if (v == null || v === '') return v;
-
-  // { field: 3, options: [1,2] } → "3-1;2"
-  if (typeof v === 'object' && !Array.isArray(v)) {
-    const field = v.field ?? v.campo ?? v.f ?? v.target ?? v.t;
-    const opts  = Array.isArray(v.options) ? v.options.join(';')
-               : (typeof v.options === 'string' ? v.options.replace(/,/g, ';') : v.options);
-    if (field != null && opts != null) return `${field}-${opts}`;
-  }
-
-  // [6,7] → "6;7"
-  if (Array.isArray(v)) return v.join(';');
-
-  // "6,7" → "6;7"  |  "3-1,2" → "3-1;2"
-  if (typeof v === 'string') return v.replace(/,/g, ';');
-
-  // número → string
-  if (typeof v === 'number') return String(v);
-
-  return v;
-}
-
-function mapFieldToInt(fRaw){
-  const f = normalizeFieldAliases(fRaw);
-  const typeIn = (f.type || '').trim();
-
-  // normalização básica (NÃO normaliza operation-type)
-  let normType;
-
-  if (typeIn === 'keyboard-type') {
-    normType = 'text'; // ← o que você pediu
-  }
-  else if (typeIn === 'single-select-type') {
-    normType = 'single-select';
-  }
-  else if (typeIn === 'multi-select-type') {
-    normType = 'multi-select';
-  }
-  else {
-    normType = typeIn; // int, operation-type, etc. permanecem como estão
-  }
-
-  const out = {
-    id: f.id,
-    placeholder: f.placeholder ?? '',
-    title: f.title ?? '',
-    type: normType,
-    required: !!f.required
-  };
-
-  // limites numéricos (valores)
-  if (Number.isFinite(f.min)) out.min = f.min;
-  if (Number.isFinite(f.max)) out.max = f.max;
-
-  // limites de caracteres (tamanho do texto)
-  if (Number.isFinite(f.minlen)) out.minlen = f.minlen;
-  if (Number.isFinite(f.maxlen)) out.maxlen = f.maxlen;
-
-  // confirmation_of continua indo junto
-  if (f.confirmation_of !== undefined && f.confirmation_of !== null){
-    out.confirmation_of = f.confirmation_of;
-  }
-
-  // fleet → deve ir para INTELIGENTE se existir
-  if (f.fleet !== undefined && f.fleet !== null){
-    out.fleet = !!f.fleet; // força boolean
-  }
-
-    // autofill → deve ir para INTELIGENTE se existir
-  if (f.autofill !== undefined && f.autofill !== null){
-    out.autofill = !!f.autofill; // força boolean
-  }
-
-// selects → tuplas
-  const isSelect = SELECT_TYPES.has(typeIn) || SELECT_TYPES.has(normType);
-  if (isSelect && Array.isArray(f.options)){
-    out.options = f.options.map(op => {
-      // já veio tupla? ainda assim aplica a normalização de separadores
-      if (Array.isArray(op)) {
-        const tuple = [...op];
-
-        // posição 4 (index 4) pode ser child_visibility
-        if (tuple.length >= 5 && tuple[4] !== undefined && tuple[4] !== null && tuple[4] !== '') {
-          tuple[4] = toInteligenteList(tuple[4]);
-        }
-        // posição 5 (index 5) pode ser dynamic_option
-        if (tuple.length >= 6 && tuple[5] !== undefined && tuple[5] !== null && tuple[5] !== '') {
-          tuple[5] = toInteligenteList(tuple[5]);
-        }
-
-        return tuple;
-      }
-
-      // objeto → [id, label, selected(0/1), msOrStatus(0 se ausente), child_visibility?, dynamic_option?]
-      const id    = op.id;
-      const label = (op.value ?? op.label ?? '');
-      const sel01 = op.selected ? 1 : 0;
-
-      // 4º item: machine_status → status_id → 0 (default)
-      let msOrStatus = (op.machine_status ?? op.status_id);
-      if (msOrStatus === undefined || msOrStatus === null || msOrStatus === '') {
-        msOrStatus = 0;
-      }
-
-      const tuple = [id, label, sel01, msOrStatus];
-
-      // 5º: child_visibility (se houver)
-      if (op.child_visibility !== undefined && op.child_visibility !== null && op.child_visibility !== ''){
-        tuple.push(op.child_visibility);
-      }
-
-      // 6º: dynamic_option (se houver)
-      if (op.dynamic_option !== undefined && op.dynamic_option !== null && op.dynamic_option !== ''){
-        tuple.push(op.dynamic_option);
-      }
-
-      return tuple;
-    });
-  }
-
-  return out;
-}
-
-function dataToInt(data){
-  if(!data || !Array.isArray(data.fields)) {
-    throw new Error('Estrutura inesperada: não encontrei `fields`.');
-  }
-  return data.fields.map(mapFieldToInt);
-}
-
-function jsonToInt(jsonStr){
-  let obj;
-  try { obj = JSON.parse(jsonStr); }
-  catch(e){ throw new Error('JSON inválido: ' + e.message); }
-
-  // aceita { type:'addForm', data:{ fields:[] }} ou { fields:[] }
-  const root = obj?.data?.fields ? obj.data : obj;
-  const arr = dataToInt(root);
-  return prettyJson(arr);
-}
-
-function xmlToInt(xmlStr){
-  // 1) Converte XML → objeto JSON estruturado ({ type:'addForm', data:{...} })
-  const obj = xmlToJsonObject(xmlStr);
-
-  // 2) Usa o dataToInt para gerar o array INTELIGENTE a partir de obj.data
-  const arr = dataToInt(obj.data);
-
-  // 3) Devolve formatado bonitinho
-  return prettyJson(arr);
-}
-
-    // ---------- UI ----------
-function updateUi(){
-  const m = modeSel.value;
-  const prevOut = outSel.value;
-
-  // 0) Reabilitar todas as opções de saída
-  [...outSel.options].forEach(opt => { opt.disabled = false; });
-
-  // 1) Remover a opção SQL (caso exista) para recriar quando preciso
-  [...outSel.options].forEach(opt => {
-    if (opt.value === 'SQL') outSel.removeChild(opt);
+  document.getElementById('btnReset').addEventListener('click', ()=>{
+    if(!confirm(`Limpar todos os dados da empresa "${current}"?`)) return;
+    masterPlates=[]; weeks=[]; displayName={}; render(); persist();
   });
 
-  // 2) Regras por tipo de ENTRADA
-  if (m === 'JSON') {
-    // Adiciona SQL como saída extra
-    const opt = document.createElement('option');
-    opt.value = 'SQL';
-    opt.textContent = 'SQL';
-    outSel.appendChild(opt);
+  inpFilter.addEventListener('input', e=>{ filter = norm(e.target.value); render(); });
 
-    // Agora NÃO desabilitamos mais JSON.
-    // Só garantimos que o valor atual é válido:
-    if (!['XML','JSON','INTELIGENTE','SQL'].includes(prevOut)) {
-      outSel.value = 'XML';
-    } else {
-      outSel.value = prevOut;
-    }
+  // renderização da grade
+  function render(){
+    headRow.innerHTML=''; subHeadRow.innerHTML=''; body.innerHTML='';
+    weeks.forEach((w, wi)=>{
+      const th = document.createElement('th');
+      th.colSpan = w.fields.length + 1;
+      const wrap = document.createElement('div');
+      wrap.className = 'weekhead';
 
-  } else if (m === 'SQL') {
-    // Entrada SQL: só JSON habilitado (ainda não existe conversão para outros)
-    outSel.value = 'JSON';
-    [...outSel.options].forEach(opt => {
-      opt.disabled = (opt.value !== 'JSON');
+      // Label editável
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = w.label;
+      input.addEventListener('input', e => {
+        w.label = e.target.value;
+        persist();
+      });
+
+      // Botões
+      const csvBtn=document.createElement('button');
+      csvBtn.className='btn';
+      csvBtn.textContent='CSV';
+      csvBtn.title='Exportar só esta semana (CSV)';
+      csvBtn.addEventListener('click', ()=> exportWeekCSV(w.id));
+
+      const xlsBtn=document.createElement('button');
+      xlsBtn.className='btn';
+      xlsBtn.textContent='XLS';
+      xlsBtn.title='Exportar só esta semana (Excel)';
+      xlsBtn.addEventListener('click', ()=> exportWeekXLS(w.id));
+
+      const copyBtn=document.createElement('button');
+      copyBtn.className='btn';
+      copyBtn.textContent='Copiar';
+      copyBtn.title='Copiar só esta semana para a área de transferência';
+      copyBtn.addEventListener('click', ()=> copyWeekToClipboard(w.id));
+
+      const rm=document.createElement('button');
+      rm.className='btn';
+      rm.textContent='×';
+      rm.title='Remover semana';
+      rm.addEventListener('click', ()=> removeWeek(w.id));
+
+      // Adiciona botões em ordem
+      wrap.append(input, csvBtn, xlsBtn, copyBtn, rm);
+      th.appendChild(wrap);
+
+      // AGORA SIM adiciona na linha de cabeçalhos
+      headRow.appendChild(th);
+
+      w.fields.forEach((f,j)=>{
+        const th2=document.createElement('th'); th2.textContent=f; th2.classList.add('wk-sub',`wk-${wi}`); if(j===0) th2.classList.add('sepL');
+        const k=f.toUpperCase();
+        if(k.includes('GRUPO')) th2.classList.add('col-grupo');
+        else if(k==='PLACA') th2.classList.add('col-placa');
+        else if(k.includes('POSI')) th2.classList.add('col-posicao');
+        else if(k.includes('END')) th2.classList.add('col-endereco');
+        else if(k.includes('EQUI')) th2.classList.add('col-equip');
+        else if(k.includes('ÁREA')||k.includes('AREA')) th2.classList.add('col-area');
+        subHeadRow.appendChild(th2);
+      });
+      const gutter=document.createElement('th'); gutter.className='gutter'; subHeadRow.appendChild(gutter);
     });
 
-  } else if (m === 'XML') {
-    // Entrada XML: pode sair como XML, JSON ou INTELIGENTE
-    if (!['XML','JSON','INTELIGENTE'].includes(prevOut)) {
-      outSel.value = 'JSON';
-    } else {
-      outSel.value = prevOut;
-    }
+    const keys = filter ? masterPlates.filter(k=> (displayName[k]||k).includes(filter)) : masterPlates.slice();
+    keys.forEach(key=>{
+      const tr=document.createElement('tr');
+      weeks.forEach((w, wi)=>{
+        w.fields.forEach((f,j)=>{
+          const td=document.createElement('td'); td.classList.add('wk',`wk-${wi}`); if(j===0) td.classList.add('sepL');
+          const K=f.toUpperCase();
+          if(K.includes('GRUPO')) td.classList.add('col-grupo');
+          else if(K==='PLACA') td.classList.add('col-placa');
+          else if(K.includes('POSI')) td.classList.add('col-posicao');
+          else if(K.includes('END')) td.classList.add('col-endereco');
+          else if(K.includes('EQUI')) td.classList.add('col-equip');
+          else if(K.includes('ÁREA')||K.includes('AREA')) td.classList.add('col-area');
+
+          const has=!!w.data[key]; let val=has?(w.data[key][f]??''):''; 
+          if(has && K==='PLACA') val = cleanPlate(keyToPlate(key));
+          td.textContent=val; tr.appendChild(td);
+        });
+        const gutterTd=document.createElement('td'); gutterTd.className='gutter'; tr.appendChild(gutterTd);
+      });
+      body.appendChild(tr);
+    });
+
+    stats.textContent = `Empresa: ${current} • Linhas: ${masterPlates.length} • Semanas: ${weeks.length}`;
   }
 
-  // 3) Atualiza títulos e placeholder
-  inTitle.textContent  = `Entrada (${m})`;
-  outTitle.textContent = `Saída (${outSel.value})`;
-  inBox.placeholder = (
-    m === 'JSON' ? 'Cole aqui seu JSON...' :
-    m === 'XML'  ? 'Cole aqui seu XML...'  :
-                   'Cole aqui seu SQL (literal ou INSERT contendo o literal)...'
-  );
-
-  // 4) Limpa saída e mensagem
-  outBox.textContent = '';
-  msg('');
-}
-
-
-    $('#btnConvert').addEventListener('click', ()=>{
-  try{
-    const m = modeSel.value; 
-    const o = outSel.value; 
-    const input = inBox.value;
-    let out='';
-
-    if (m==='JSON' && o==='XML') out = jsonToXml(input);
-    else if (m==='JSON' && o==='JSON') out = normalizeJsonDynamicOptions(input);
-    else if (m==='JSON' && o==='INTELIGENTE') out = jsonToInt(input);
-    else if (m==='JSON' && o==='SQL') out = jsonToSql(input);
-
-    else if (m==='XML' && o==='JSON') out = xmlToJson(input);
-    else if (m==='XML' && o==='XML') out = prettyXml(normalizeLooseXml(input));
-    else if (m==='XML' && o==='INTELIGENTE') out = xmlToInt(input);
-
-    else if (m==='SQL' && o==='JSON') out = sqlToJson(input);
-
-    else throw new Error('Combinação de formatos não suportada.');
-
-    outBox.textContent = out; 
-    msg('Conversão concluída.');
-  }catch(e){ 
-    outBox.textContent=''; 
-    msg(e.message, true); 
+  function exportWeekCSV(weekId){
+    const wk=weeks.find(w=>w.id===weekId); if(!wk) return alert('Semana não encontrada.');
+    const head=wk.fields.slice(); const rows=[head];
+    masterPlates.forEach(key=>{
+      const has=!!wk.data[key];
+      rows.push(wk.fields.map(f=>{
+        if(!has) return '';
+        const v=wk.data[key][f]??''; return (f.toUpperCase()==='PLACA')? keyToPlate(key): v;
+      }));
+    });
+    const csv=rows.map(r=> r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const blob=new Blob(["\uFEFF"+csv],{type:'text/csv;charset=utf-8;'});
+    const url=URL.createObjectURL(blob); const a=document.createElement('a');
+    a.href=url; a.download=`semana_${wk.label.replace(/[\\/:*?"<>|]+/g,'_')}.csv`; a.click(); URL.revokeObjectURL(url);
   }
-});
-
-    $('#btnFormat').addEventListener('click', ()=>{
-      const m = modeSel.value;
-      try{
-        if(m==='JSON') inBox.value = prettyJson(inBox.value);
-        else inBox.value = prettyXml(normalizeLooseXml(inBox.value));
-        msg('Entrada formatada.');
-      }catch(e){ msg('Não foi possível formatar a entrada: '+e.message, true); }
-    });
-
-    $('#btnCopy').addEventListener('click', async ()=>{
-      try{ await navigator.clipboard.writeText(outBox.textContent); msg('Saída copiada.'); }
-      catch(e){ msg('Falha ao copiar: '+e.message, true); }
-    });
-
-    $('#btnDownload').addEventListener('click', ()=>{
-      const o = outSel.value; const isXml = (o==='XML');
-      const blob = new Blob([outBox.textContent||''], {type: isXml ? 'application/xml;charset=utf-8' : 'application/json;charset=utf-8'});
-      const url = URL.createObjectURL(blob); const a=document.createElement('a');
-      a.href=url; a.download = isXml ? 'saida.xml' : (o==='INTELIGENTE' ? 'saida.inteligente.json' : 'saida.json');
-      a.click(); URL.revokeObjectURL(url);
-    });
-
-    $('#btnClear').addEventListener('click', ()=>{
-      // limpa campos
-      inBox.value = '';
-      outBox.textContent = '';
-      // limpa mensagens e estilos
-      msg('');
-      // opcional: remover classe de erro, caso tenha ficado
-      msgEl.className = 'muted';
-      // foco de volta na entrada
-      inBox.focus();
-    });
-
-    document.addEventListener('keydown', (e)=>{
-      const isMac = navigator.platform.toLowerCase().includes('mac');
-      if ((isMac ? e.metaKey : e.ctrlKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        $('#btnClear').click();
-      }
-    });
-
-    outSel.addEventListener('change', ()=>{
-    outTitle.textContent = `Saída (${outSel.value})`;
-    msg(outSel.value === 'INTELIGENTE'? 'Saída INTELIGENTE: array de campos no formato [{ id, title, placeholder, type, required, ... }].': '');
-    });
-    updateUi();
-
-    inBox.addEventListener('input', () => {
-    const guess = detectInputFormat(inBox.value);
-    if (guess && modeSel.value !== guess) {
-      modeSel.value = guess;
-      updateUi();
+  function exportWeekXLS(weekId){
+    const wk=weeks.find(w=>w.id===weekId); if(!wk) return alert('Semana não encontrada.');
+    if(typeof XLSX==='undefined'){ 
+      let html='<table border="1" cellspacing="0" cellpadding="4"><thead><tr>';
+      wk.fields.forEach(f=> html+=`<th>${String(f).replace(/</g,'&lt;')}</th>`); html+='</tr></thead><tbody>';
+      masterPlates.forEach(key=>{
+        const has=!!wk.data[key]; html+='<tr>';
+        wk.fields.forEach(f=>{
+          let v = has? (wk.data[key][f]??'') : '';
+          if (has && f.toUpperCase()==='PLACA') v=keyToPlate(key);
+          html+=`<td>${String(v).replace(/</g,'&lt;')}</td>`;
+        });
+        html+='</tr>';
+      });
+      html+='</tbody></table>';
+      return downloadHTML(`semana_${wk.label}.xlsx`, html);
     }
-  });
+    const data=[wk.fields.slice()];
+    masterPlates.forEach(key=>{
+      const has=!!wk.data[key];
+      data.push(wk.fields.map(f=>{
+        if(!has) return ''; const v=wk.data[key][f]??''; 
+        return (f.toUpperCase()==='PLACA')? keyToPlate(key): v;
+      }));
+    });
+    const wb=XLSX.utils.book_new(); const ws=XLSX.utils.aoa_to_sheet(data);
+    XLSX.utils.book_append_sheet(wb, ws, wk.label.substring(0,31));
+    XLSX.writeFile(wb, `semana_${wk.label.replace(/[\\/:*?"<>|]+/g,'_')}.xlsx`);
+  }
 
-  modeSel.addEventListener('change', ()=>{
-  updateUi();
-});
+  // iniciar
+  let masterPlates, weeks, displayName; // definidos em loadStateFor
+  let filter = ''; // evita ReferenceError em render()
+  loadStateFor(current);
+  renderTabs();
+  render();
+  // datas padrão
+  render();
+  setDefaultDates();
 
-  </script>
+})();
+</script>
 </body>
 </html>
-
