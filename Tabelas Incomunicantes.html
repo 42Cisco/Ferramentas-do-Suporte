@@ -136,8 +136,14 @@ VEÍCULOS BALCÃO	JAM5J05	23/06/2024 03:10	Rua Pastor Heinrich...	GV50
 <script>
 (function(){
   /* ====== MULTI-EMPRESA (ABAS) ====== */
-  const LS_GLOBAL = 'op_companies_v1'; // { companies:[], current:'' }
-
+  const LS_GLOBAL = 'op_companies_v1';
+  
+  let masterPlates = [];
+  let weeks = [];
+  let displayName = {};
+  let areaRules = [];
+  let filter = '';
+  
   function loadCompanies(){
     try{
       const j = JSON.parse(localStorage.getItem(LS_GLOBAL)||'{}');
@@ -157,7 +163,8 @@ VEÍCULOS BALCÃO	JAM5J05	23/06/2024 03:10	Rua Pastor Heinrich...	GV50
     return {
       plates: prefix + 'plates_master_v4',
       weeks:  prefix + 'weeks_v4',
-      names:  prefix + 'key_display_v1'
+      names:  prefix + 'key_display_v1',
+      areas:  prefix + 'areas_rules_v1'
     };
   }
 
@@ -171,6 +178,10 @@ VEÍCULOS BALCÃO	JAM5J05	23/06/2024 03:10	Rua Pastor Heinrich...	GV50
       masterPlates = JSON.parse(localStorage.getItem(K.plates)||'[]') || [];
       weeks        = JSON.parse(localStorage.getItem(K.weeks)||'[]')  || [];
       displayName  = JSON.parse(localStorage.getItem(K.names)||'{}')  || {};
+      areaRules = JSON.parse(localStorage.getItem(K.areas)||'[]') || [];
+      if (!Array.isArray(areaRules) || !areaRules.length) {
+        areaRules = DEFAULT_AREA_RULES.slice();
+      }
     }catch(_){
       masterPlates = []; weeks = []; displayName = {};
     }
@@ -180,6 +191,7 @@ VEÍCULOS BALCÃO	JAM5J05	23/06/2024 03:10	Rua Pastor Heinrich...	GV50
     localStorage.setItem(K.plates, JSON.stringify(masterPlates));
     localStorage.setItem(K.weeks,  JSON.stringify(weeks));
     localStorage.setItem(K.names,  JSON.stringify(displayName));
+    localStorage.setItem(K.areas, JSON.stringify(areaRules));
   }
 
   // === RENDER DAS ABAS (corrigido: fecha chaves e adiciona appendChild)
@@ -362,51 +374,188 @@ VEÍCULOS BALCÃO	JAM5J05	23/06/2024 03:10	Rua Pastor Heinrich...	GV50
     if (n.startsWith('POSIÇÃO')) return 'POSIÇÃO SERV';
     return raw;
   };
-  const normalizeClipboardDump = (text) => {
+  
+  // ==== Heurísticas: identificar EQUIPAMENTO x ÁREA ====
+const looksLikeEquip = (s) => {
+  const t = String(s || '').trim().toUpperCase();
+  if (!t) return false;
+
+  // padrões mais comuns de equipamento
+  if (/^GV\d+(CG)?$/.test(t)) return true;      // GV50, GV75, GV50CG
+  if (t === 'TETROS PLUS') return true;
+
+  // fallback: token curto, sem hífen e sem espaços
+  if (t.length <= 12 && !t.includes('-') && !t.includes(' ')) return true;
+
+  return false;
+};
+
+const looksLikeArea = (s) => {
+  const t = String(s || '').trim().toUpperCase();
+  if (!t) return false;
+
+  if (t.startsWith('ENTROU') || t.startsWith('SAIU')) return true;
+  if (t.includes('-')) return true;
+
+  return false;
+};
+
+const looksLikeMultiFleetDump = (text) => {
+  const raw = (text || '').replace(/\r/g, '');
+  const lines = raw.split('\n').map(l => l.trimEnd()).filter(l => l.trim().length);
+
+  // Detecta o padrão: linha principal com TAB + próxima linha sem TAB (endereço)
+  for (let i = 0; i < Math.min(lines.length, 60); i++) {
+    const l = lines[i];
+    if (!l.includes('\t')) continue;
+    const c = l.split('\t');
+    if (!(c[0] ?? '').trim()) continue;
+    if (!(c[1] ?? '').trim()) continue;
+    if (!(c[2] ?? '').trim()) continue;
+    if (!/\d{2}\/\d{2}\/\d{2}/.test(c[2])) continue;
+
+    if (lines[i + 1] && !lines[i + 1].includes('\t')) return true;
+  }
+  return false;
+};
+
+// ==== Normalizador do "colar" do MultiFleet (3 linhas por registro) ====
+const normalizeClipboardDumpMultiFleet = (text) => {
   const raw = (text || '').replace(/\r/g, '');
   const lines = raw.split('\n').map(l => l.trimEnd()).filter(l => l.trim().length);
 
   const out = [];
+
+  const isMainRowMF = (l) => {
+    if (!l || !l.includes('\t')) return false;
+    const c = l.split('\t');
+    if (!(c[0] ?? '').trim()) return false; // grupo
+    if (!(c[1] ?? '').trim()) return false; // placa
+    if (!(c[2] ?? '').trim()) return false; // posição
+    return /\d{2}\/\d{2}\/\d{2}/.test(c[2]); // data
+  };
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+    if (!isMainRowMF(line)) continue;
 
-    // Linha "principal" (tem TAB: Grupo, Placa, Posição, [talvez vazio])
-    if (line.includes('\t')) {
-      const cols = line.split('\t');
+    const cols = line.split('\t');
+    const grupo = (cols[0] ?? '').trim();
+    const placa = (cols[1] ?? '').trim();
+    const pos   = (cols[2] ?? '').trim();
 
-      // garante ao menos 3 colunas (grupo/placa/posição)
-      const grupo = cols[0] ?? '';
-      const placa = cols[1] ?? '';
-      const pos   = cols[2] ?? '';
-
-      // Se já vieram endereço/equipamento na mesma linha, mantém
-      let endereco = cols[3] ?? '';
-      let equip    = cols[4] ?? '';
-
-      // Se endereço vazio e próxima linha NÃO tem TAB, pega como endereço
-      if (!endereco && lines[i + 1] && !lines[i + 1].includes('\t')) {
-        endereco = lines[i + 1];
-        i += 1;
-      }
-
-      // Se equipamento vazio e próxima linha NÃO tem TAB, pega como equipamento
-      if (!equip && lines[i + 1] && !lines[i + 1].includes('\t')) {
-        equip = lines[i + 1];
-        i += 1;
-      }
-
-      out.push([grupo, placa, pos, endereco, equip].join('\t'));
-      continue;
+    // 2ª linha: endereço (sem TAB)
+    let endereco = '';
+    if (lines[i + 1] && !lines[i + 1].includes('\t') && !isMainRowMF(lines[i + 1])) {
+      endereco = lines[i + 1].trim();
+      i += 1;
     }
 
-    // Se cair aqui, é uma linha solta (endereço/equip) sem uma linha principal antes
-    // ignora para não virar "registro fantasma"
+    // 3ª linha: pode ser EQUIP (sem TAB) OU "ÁREA\tEQUIP" (com TAB) OU só ÁREA
+    let area = '';
+    let equip = '';
+
+    if (lines[i + 1] && !isMainRowMF(lines[i + 1])) {
+      const next = lines[i + 1];
+
+      if (next.includes('\t')) {
+        // ✅ REGRA FIXA: se tem TAB, separa e acabou.
+      const parts = next.split('\t').map(s => s.trim());
+      while (parts.length && parts[parts.length - 1] === '') parts.pop(); // remove TAB vazio final
+      area  = parts[0] ?? '';
+      equip = parts[1] ?? '';
+
+      } else {
+        // Sem TAB: pode ser só equipamento OU só área
+        const txt = next.trim();
+        if (looksLikeEquip(txt)) equip = txt;
+        else area = txt;
+        i += 1;
+      }
+    }
+
+    // ✅ Saída sempre: GRUPO, PLACA, POSIÇÃO, ENDEREÇO, ÁREA, EQUIPAMENTO
+    out.push([grupo, placa, pos, endereco, area, equip].join('\t'));
   }
 
-  return out.join('\n');
+  // Cabeçalho fixo com ÁREA separado de EQUIPAMENTO
+  return [
+    "GRUPO\tPLACA\tPOSIÇÃO SERV\tENDEREÇO\tÁREA\tEQUIPAMENTO",
+    ...out
+  ].join('\n');
 };
+
+// ===== Regras de ÁREA por endereço =====
+const normText = (s) => (s || '')
+  .toString()
+  .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+  .toUpperCase()
+  .trim();
+
+const compileAreaRules = (rules) => {
+  return (rules || [])
+    .filter(r => r && r.area && Array.isArray(r.includes) && r.includes.length)
+    .map(r => ({
+      area: normText(r.area),
+      includes: r.includes.map(normText).filter(Boolean)
+    }));
+};
+
+const inferAreaFromAddress = (address, compiledRules) => {
+  const adr = normText(address);
+  if (!adr) return '';
+
+  for (const r of compiledRules) {
+    // se QUALQUER keyword bater, assume a área
+    if (r.includes.some(k => adr.includes(k))) return r.area;
+  }
+  return '';
+};
+
+// Regras iniciais (você pode editar depois)
+const DEFAULT_AREA_RULES = [
+  {
+    area: "RUA PAP",
+    includes: [
+      "RUA IVONI HOPPEN POHL",
+      "RUA BENNO AUGUSTO SCHMITT",
+      "RUA JAIR SCHERER",
+      "RUA XAXIM",
+      "LOTEAMENTO FLORESTA",
+      "FLORESTA, LAJEADO"
+    ]
+  },
+  {
+    area: "RUA DA PEDREIRA",
+    includes: ["RUA PEDRO BEUREN", "CONVENTOS, LAJEADO"]
+  },
+  {
+    area: "MECANICA DS",
+    includes: ["RUA PEDRO THEOBALDO BREITENBACH", "BOM PASTOR, LAJEADO"]
+  },
+  {
+    area: "MECANICA TRUCK DIESEL",
+    includes: ["IMIGRANTE, LAJEADO"]
+  },
+  {
+    area: "MECANICA REFORMAQ",
+    includes: ["RUA MARECHAL FLORIANO", "GUAPORE", "PLANALTO, GUAPORE"]
+  },
+  {
+    area: "MECANICA HIDRAUCAMBIO",
+    includes: ["RUA ALBINO WOLF", "CENTENARIO, LAJEADO"]
+  },
+  {
+    area: "AVENIDA BLUMEN PARK",
+    includes: ["RUA PEDRO THEOBALDO BREITENBACH", "CONVENTOS, LAJEADO"]
+  }
+];
+ 
   const parseTable = (text) => {
-    text = normalizeClipboardDump(text);
+    // Normalização específica para dump do MultiFleet
+    if (looksLikeMultiFleetDump(text)) {
+      text = normalizeClipboardDumpMultiFleet(text);
+    }
     const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
     if (!lines.length) throw new Error('Nada para importar.');
     const delimiter = detectDelimiter(lines[0]);
@@ -419,10 +568,17 @@ VEÍCULOS BALCÃO	JAM5J05	23/06/2024 03:10	Rua Pastor Heinrich...	GV50
 
     if (placaIdxHeader !== -1) { fields = headCand; startRow = 1; }
     else {
-      const firstLen = firstCols.length;
-      fields = DEFAULT_FIELDS.slice();
-      if (firstLen === DEFAULT_FIELDS.length + 1) fields = [...DEFAULT_FIELDS, 'ÁREA'];
-      startRow = 0;
+    const maxScan = Math.min(lines.length, 30);
+    let maxLen = firstCols.length;
+    for (let k = 0; k < maxScan; k++) {
+      const c = splitRowGeneric(lines[k], delimiter);
+      if (c.length > maxLen) maxLen = c.length;
+    }
+
+    fields = DEFAULT_FIELDS.slice();
+    if (maxLen >= DEFAULT_FIELDS.length + 1) fields = [...DEFAULT_FIELDS, 'ÁREA'];
+    startRow = 0;
+
     }
     fields = fields.map(canonicalizeHeader);
 
@@ -462,6 +618,35 @@ VEÍCULOS BALCÃO	JAM5J05	23/06/2024 03:10	Rua Pastor Heinrich...	GV50
       const text = txtPaste.value.trim();
       if (!text) return alert('Cole o CSV/TSV da semana.');
       const { fields, rows } = parseTable(text);
+
+      const compiled = compileAreaRules(areaRules);
+
+// garante coluna ÁREA
+if (!fields.some(f => norm(f) === 'ÁREA' || norm(f) === 'AREA')) {
+  fields.push('ÁREA');
+}
+
+rows.forEach(r => {
+  const obj = r.obj;
+
+  const addr = obj['ENDEREÇO'] || obj['ENDERECO'] || '';
+  const currentArea = obj['ÁREA'] || obj['AREA'] || '';
+
+  // limpa "Entrou-" / "Saiu-"
+  let cleanedArea = String(currentArea || '').trim();
+  cleanedArea = cleanedArea.replace(/^ENTROU[-\s]*/i,'').replace(/^SAIU[-\s]*/i,'').trim();
+
+  const inferred = inferAreaFromAddress(addr, compiled);
+
+  // ✅ prioridade: área do dado > inferida > "-"
+  if (cleanedArea) {
+    obj['ÁREA'] = cleanedArea;
+  } else if (inferred) {
+    obj['ÁREA'] = inferred;
+  } else {
+    obj['ÁREA'] = '-';
+  }
+});
 
       const occ = Object.create(null);
       const data = {};
@@ -759,12 +944,8 @@ VEÍCULOS BALCÃO	JAM5J05	23/06/2024 03:10	Rua Pastor Heinrich...	GV50
   }
 
   // iniciar
-  let masterPlates, weeks, displayName; // definidos em loadStateFor
-  let filter = ''; // evita ReferenceError em render()
   loadStateFor(current);
   renderTabs();
-  render();
-  // datas padrão
   render();
   setDefaultDates();
 
