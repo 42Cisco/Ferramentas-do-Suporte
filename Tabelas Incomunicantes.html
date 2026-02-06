@@ -304,6 +304,7 @@ VEÍCULOS BALCÃO	JAM5J05	23/06/2024 03:10	Rua Pastor Heinrich...	GV50
 
   /* ====== ESTADO POR EMPRESA ====== */
   const norm = (s)=> (s||'').toString().trim().toUpperCase();
+  const cleanPlate = (s) => norm(String(s || '').split('(')[0]);
   const pad = (n)=> String(n).padStart(2,'0');
   const fmtBR = (d)=> `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()}`;
   const fmtISO = (d)=> `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
@@ -361,7 +362,51 @@ VEÍCULOS BALCÃO	JAM5J05	23/06/2024 03:10	Rua Pastor Heinrich...	GV50
     if (n.startsWith('POSIÇÃO')) return 'POSIÇÃO SERV';
     return raw;
   };
+  const normalizeClipboardDump = (text) => {
+  const raw = (text || '').replace(/\r/g, '');
+  const lines = raw.split('\n').map(l => l.trimEnd()).filter(l => l.trim().length);
+
+  const out = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // Linha "principal" (tem TAB: Grupo, Placa, Posição, [talvez vazio])
+    if (line.includes('\t')) {
+      const cols = line.split('\t');
+
+      // garante ao menos 3 colunas (grupo/placa/posição)
+      const grupo = cols[0] ?? '';
+      const placa = cols[1] ?? '';
+      const pos   = cols[2] ?? '';
+
+      // Se já vieram endereço/equipamento na mesma linha, mantém
+      let endereco = cols[3] ?? '';
+      let equip    = cols[4] ?? '';
+
+      // Se endereço vazio e próxima linha NÃO tem TAB, pega como endereço
+      if (!endereco && lines[i + 1] && !lines[i + 1].includes('\t')) {
+        endereco = lines[i + 1];
+        i += 1;
+      }
+
+      // Se equipamento vazio e próxima linha NÃO tem TAB, pega como equipamento
+      if (!equip && lines[i + 1] && !lines[i + 1].includes('\t')) {
+        equip = lines[i + 1];
+        i += 1;
+      }
+
+      out.push([grupo, placa, pos, endereco, equip].join('\t'));
+      continue;
+    }
+
+    // Se cair aqui, é uma linha solta (endereço/equip) sem uma linha principal antes
+    // ignora para não virar "registro fantasma"
+  }
+
+  return out.join('\n');
+};
   const parseTable = (text) => {
+    text = normalizeClipboardDump(text);
     const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
     if (!lines.length) throw new Error('Nada para importar.');
     const delimiter = detectDelimiter(lines[0]);
@@ -389,7 +434,7 @@ VEÍCULOS BALCÃO	JAM5J05	23/06/2024 03:10	Rua Pastor Heinrich...	GV50
       const cols = splitRowGeneric(lines[i], delimiter);
       if (!cols.length) continue;
       const plateRaw = cols[placaIdx] ?? cols[1] ?? '';
-      const plate = norm(plateRaw);
+      const plate = cleanPlate(plateRaw);
       if (!plate) continue;
       const obj = {};
       for (let j = 0; j < fields.length; j++) obj[fields[j]] = cols[j] ?? '';
@@ -657,7 +702,7 @@ VEÍCULOS BALCÃO	JAM5J05	23/06/2024 03:10	Rua Pastor Heinrich...	GV50
           else if(K.includes('ÁREA')||K.includes('AREA')) td.classList.add('col-area');
 
           const has=!!w.data[key]; let val=has?(w.data[key][f]??''):''; 
-          if(has && K==='PLACA') val = keyToPlate(key);
+          if(has && K==='PLACA') val = cleanPlate(keyToPlate(key));
           td.textContent=val; tr.appendChild(td);
         });
         const gutterTd=document.createElement('td'); gutterTd.className='gutter'; tr.appendChild(gutterTd);
@@ -720,13 +765,8 @@ VEÍCULOS BALCÃO	JAM5J05	23/06/2024 03:10	Rua Pastor Heinrich...	GV50
   renderTabs();
   render();
   // datas padrão
-  (function setDefaultsIIFE(){
-    const t=new Date(); const d=t.getDay(); const diff=(d+6)%7;
-    const mon=new Date(t); mon.setDate(t.getDate()-diff);
-    const sun=new Date(mon); sun.setDate(mon.getDate()+6);
-    dtStart.value=fmtISO(mon); dtEnd.value=fmtISO(sun);
-    inpWeekLabel.value=`${fmtBR(mon)} a ${fmtBR(sun)}`;
-  })();
+  render();
+  setDefaultDates();
 
 })();
 </script>
