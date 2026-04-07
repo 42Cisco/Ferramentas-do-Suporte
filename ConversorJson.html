@@ -96,6 +96,21 @@
       color: #9ca3af;
     }
 
+    .controls input {
+      width: 70px;
+      background: #020617;
+      color: #e5e7eb;
+      border-radius: 999px;
+      border: 1px solid #4b5563;
+      padding: 4px 10px;
+      font-size: 0.85rem;
+      outline: none;
+    }
+
+    .controls input:focus {
+      border-color: #38bdf8;
+    }
+
     .grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -243,6 +258,11 @@
           <option value="machine_status">machine_status</option>
           <option value="status_id">status_id</option>
         </select>
+        <label for="startId">ID inicial:</label>
+        <input type="number" id="startId" placeholder="1" min="1" />
+
+        <label for="startValue">Value inicial:</label>
+        <input type="number" id="startValue" placeholder="1" min="1" />
         <span class="hint">Se usar, escreva o número no final da linha: <code>01-ITEM / 30</code></span>
       </div>
 
@@ -276,6 +296,8 @@
     const clearBtn = document.getElementById("clearBtn");
     const toast = document.getElementById("toast");
     const extraTypeSelect = document.getElementById("extraType");
+    const startIdInput = document.getElementById("startId");
+    const startValueInput = document.getElementById("startValue");
 
     function showToast(message) {
       toast.textContent = message;
@@ -315,12 +337,18 @@
           }
         }
 
-        const texto = raw.toUpperCase();
-        const id = idx + 1;
+        const startId = Number(startIdInput.value) || 1;
+        const startValue = Number(startValueInput.value) || 1;
+
+        const id = startId + idx;
+        const valueNumerico = startValue + idx;
+
+        // ignora qualquer número do texto e usa sequência
+        const texto = raw.replace(/^\d+-?/, "").toUpperCase();
 
         const campos = [
           `    "id": ${id}`,
-          `    "value": ${JSON.stringify(texto)}`,
+          `    "value": ${JSON.stringify(valueNumerico + "-" + texto)}`,
           `    "selected": false`
         ];
 
