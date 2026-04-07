@@ -41,6 +41,10 @@
           <button class="btn" style="background:#22c55e;color:#001508" id="btnSql">Gerar SQL</button>
           <button class="btn ghost" id="btnCopiar">Copiar Saída</button>
           <button class="btn secondary" id="btnLimpar">Limpar</button>
+
+          <label style="display:flex;align-items:center;gap:6px;">
+            <input type="checkbox" id="chkAdminFinal"> Adicionar Admin
+          </label>
         </div>
       </div>
       <div class="grid">
@@ -71,6 +75,17 @@
     const normKey = s => stripAccents(String(s)).toLowerCase().replace(/\s+/g,' ').trim();
     const TYPE_MAP = new Map(Array.from(TYPE_RAW.entries()).map(([k,v])=>[normKey(k),v]));
     const inferTypeId = v => TYPE_MAP.get(normKey(v)) ?? 4;
+
+    const ADMIN_OBJ = {
+      type: "addOperator",
+      data: {
+        id: 1,
+        name: "Administrador",
+        code: "111",
+        password: "vuf1019",
+        type: 1
+      }
+    };
 
     // ---------- Utils ----------
     const pasteArea = document.getElementById('pasteArea');
@@ -168,14 +183,31 @@
     function toJSON(){
       const rows = toRows();
       const list = [];
+
       for(const r of rows){
         const [id,name,code,password,tipo] = r;
         if(!isInt(id)) continue;
+
         list.push({
           type: 'addOperator',
-          data: { id: Number(id), name: String(name).trim(), code: String(code).trim(), password: String(password).trim(), type: inferTypeId(tipo) }
+          data: {
+            id: Number(id),
+            name: String(name).trim(),
+            code: String(code).trim(),
+            password: String(password).trim(),
+            type: inferTypeId(tipo)
+          }
         });
       }
+
+      // 👇 pega o estado da checkbox
+      const addAdmin = document.getElementById('chkAdminFinal').checked;
+
+      // 👇 adiciona no final se estiver marcada
+      if(addAdmin){
+        list.push(ADMIN_OBJ);
+      }
+
       return JSON.stringify(list, null, 2);
     }
 
@@ -203,4 +235,3 @@
   </script>
 </body>
 </html>
-
