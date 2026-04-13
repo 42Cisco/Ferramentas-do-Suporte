@@ -343,12 +343,14 @@
         const id = startId + idx;
         const valueNumerico = startValue + idx;
 
+        const valueFormatado = String(valueNumerico).padStart(2, "0");
+
         // ignora qualquer número do texto e usa sequência
         const texto = raw.replace(/^\d+-?/, "").toUpperCase();
 
         const campos = [
           `    "id": ${id}`,
-          `    "value": ${JSON.stringify(valueNumerico + "-" + texto)}`,
+          `    "value": ${JSON.stringify(valueFormatado + "-" + texto)}`,
           `    "selected": false`
         ];
 
