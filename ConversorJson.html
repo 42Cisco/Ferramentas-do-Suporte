@@ -309,61 +309,79 @@
     }
 
     function gerarJSON() {
-      const extraType = extraTypeSelect.value; // none, machine_status, status_id
+    const extraType = extraTypeSelect.value;
 
-      const linhasBrutas = input.value
-        .split(/\r?\n/)
-        .map(l => l.trim())
-        .filter(Boolean);
+    const linhasBrutas = input.value
+      .split(/\r?\n/)
+      .map(l => l.trim())
+      .filter(Boolean);
 
-      if (!linhasBrutas.length) {
-        output.value = "";
-        return;
+    if (!linhasBrutas.length) {
+      output.value = "";
+      return;
+    }
+
+    const startId = Number(startIdInput.value) || 1;
+
+    // Só considera Value inicial se o campo foi preenchido
+    const valueInicialInformado = startValueInput.value.trim() !== "";
+    const startValue = valueInicialInformado ? Number(startValueInput.value) : null;
+
+    const blocos = linhasBrutas.map((linha, idx) => {
+      let raw = linha;
+      let extraValue = null;
+
+      // Remove espaços antes e depois do hífen
+      raw = raw.replace(/\s*-\s*/g, "-");
+
+      // Só procura "/ número" se tiver tipo extra selecionado
+      if (extraType !== "none") {
+        const matchExtra = raw.match(/\/\s*(\d+)\s*$/);
+        if (matchExtra) {
+          extraValue = Number(matchExtra[1]);
+          raw = raw.slice(0, matchExtra.index).trim();
+        }
       }
 
-      const blocos = linhasBrutas.map((linha, idx) => {
-        let raw = linha;
-        let extraValue = null;
+      const id = startId + idx;
 
-        // Remove espaços antes e depois do hífen
-        raw = raw.replace(/\s*-\s*/g, "-");
+      // Captura número inicial da linha, se existir
+      const matchNumeroLinha = raw.match(/^(\d+)-?(.*)$/);
 
+      let numeroValue;
+      let texto;
 
-        // Só procura "/ número" se tiver tipo extra selecionado
-        if (extraType !== "none") {
-          const match = raw.match(/\/\s*(\d+)\s*$/);
-          if (match) {
-            extraValue = Number(match[1]);
-            raw = raw.slice(0, match.index).trim();
-          }
-        }
+      if (valueInicialInformado) {
+        // Se Value inicial foi informado, ignora os números da linha e cria sequência
+        numeroValue = startValue + idx;
+        numeroValue = String(numeroValue).padStart(2, "0");
 
-        const startId = Number(startIdInput.value) || 1;
-        const startValue = Number(startValueInput.value) || 1;
+        texto = raw.replace(/^\d+-?/, "").trim().toUpperCase();
+      } else if (matchNumeroLinha) {
+        // Se não foi informado Value inicial, mantém o número original da linha
+        numeroValue = matchNumeroLinha[1];
+        texto = matchNumeroLinha[2].trim().toUpperCase();
+      } else {
+        // Se não tem número na linha e não foi informado Value inicial, usa sequência normal
+        numeroValue = String(idx + 1).padStart(2, "0");
+        texto = raw.trim().toUpperCase();
+      }
 
-        const id = startId + idx;
-        const valueNumerico = startValue + idx;
+      const campos = [
+        `    "id": ${id}`,
+        `    "value": ${JSON.stringify(numeroValue + "-" + texto)}`,
+        `    "selected": false`
+      ];
 
-        const valueFormatado = String(valueNumerico).padStart(2, "0");
+      if (extraType !== "none" && extraValue !== null) {
+        campos.push(`    "${extraType}": ${extraValue}`);
+      }
 
-        // ignora qualquer número do texto e usa sequência
-        const texto = raw.replace(/^\d+-?/, "").toUpperCase();
+      return "  {\n" + campos.join(",\n") + "\n  }";
+    });
 
-        const campos = [
-          `    "id": ${id}`,
-          `    "value": ${JSON.stringify(valueFormatado + "-" + texto)}`,
-          `    "selected": false`
-        ];
-
-        if (extraType !== "none" && extraValue !== null) {
-          campos.push(`    "${extraType}": ${extraValue}`);
-        }
-
-        return "  {\n" + campos.join(",\n") + "\n  }";
-      });
-
-      output.value = "[\n" + blocos.join(",\n") + "\n]";
-    }
+    output.value = "[\n" + blocos.join(",\n") + "\n]";
+  }
 
     function copiarSaida() {
       if (!output.value.trim()) {
