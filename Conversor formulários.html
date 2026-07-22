@@ -364,7 +364,7 @@ function jsonToXml(jsonStr){
 const isMulti =
   type === 'multi-select-type' || type === 'multi-select';
 
-const containerTag = isMulti ? 'multi-select-type' : 'single-select-type';
+const containerTag = isMulti ? 'multiple-select-type' : 'single-select-type';
 
 xml += `\n    <${containerTag}>`;
 
@@ -494,11 +494,14 @@ xml += `\n    </${containerTag}>`;
         if(dft) f.placeholder = dft.textContent || '';
 
         const intNode = item.querySelector(':scope > int-numpad-type');
-        const selNode = item.querySelector(':scope > single-select-type, :scope > multi-select-type');
+        const selNode = item.querySelector(':scope > single-select-type, :scope > multiple-select-type, :scope > multi-select-type');
         const keyNode = item.querySelector(':scope > keyboard-type');
 
         if (selNode){
-          const isMulti = selNode.tagName.toLowerCase() === 'multi-select-type';
+          const selectTag = selNode.tagName.toLowerCase();
+          const isMulti =
+          selectTag === 'multiple-select-type' ||
+          selectTag === 'multi-select-type';
           f.type = isMulti ? 'multi-select-type' : 'single-select-type';
           f.options = [];
           selNode.querySelectorAll('option').forEach(op=>{
