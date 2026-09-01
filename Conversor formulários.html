@@ -100,7 +100,7 @@ function normalizeFieldsForSQL(fields){
     const nf = {...f};
 
     // 1) tipo "operation-type" deve virar "single-select"
-    if (String(nf.type || '').toLowerCase() === 'operation-type') {
+    if (['operation-type', 'operation'].includes(String(nf.type || '').toLowerCase())) {
       nf.type = 'single-select';
     }
 
@@ -358,7 +358,8 @@ function jsonToXml(jsonStr){
 } else if (
   type === 'single-select-type' || type === 'single-select' ||
   type === 'multi-select-type'  || type === 'multi-select'  ||
-  type === 'operation-type' // suporta como select
+  type === 'operation-type' || // suporta como select
+  type === 'operation'
 ){
   // usa <single-select-type> como contêiner padrão
 const isMulti =
@@ -594,7 +595,8 @@ const SELECT_TYPES = new Set([
   'single-select',
   'multi-select-type',
   'multi-select',
-  'operation-type' // tratado como select e normalizado p/ single-select
+  'operation-type', // tratado como select e normalizado p/ single-select
+  'operation',
 ]);
 
 // Normaliza listas em child_visibility e dynamic_option (vírgula → ponto-e-vírgula)
