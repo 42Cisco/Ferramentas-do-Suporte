@@ -360,6 +360,7 @@ function jsonToXml(jsonStr){
   type === 'multi-select-type'  || type === 'multi-select'  ||
   type === 'operation-type' || // suporta como select
   type === 'operation'
+  type === 'claw-size' || type === 'gauge-size'
 ){
   // usa <single-select-type> como contêiner padrão
 const isMulti =
@@ -595,6 +596,8 @@ const SELECT_TYPES = new Set([
   'single-select',
   'multi-select-type',
   'multi-select',
+  "claw-size",
+  "gauge-size",
   'operation-type', // tratado como select e normalizado p/ single-select
   'operation',
 ]);
